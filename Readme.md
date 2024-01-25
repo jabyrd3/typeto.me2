@@ -7,6 +7,8 @@ This is a rewrite of [an earlier version by Derek Arnold](https://github.com/lys
 * built with deno, cre, and a font.
 * no other deps required
 
+[try it out!](https://typeto.me)
+
 ## building as a binary
 
 ```
@@ -78,4 +80,4 @@ Here is an example SSL reverse proxy configuration:
 
 [Jordan Byrd](https://jordanbyrd.com/) did all the work; [Daniel](https://3e.org/dmd/) nagged him to do it.
 
-[Use it live](https://typeto.me)
+
