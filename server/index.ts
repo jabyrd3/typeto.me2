@@ -214,9 +214,11 @@ Deno.serve({ port: 8090 }, (req) => {
     const body = JSON.parse(event.data);
     switch (body.type) {
       case "newroom":
+        // fresh connection
         if (!body.socketId) {
           socket.id = getRandomString(20);
         } else {
+          // buddy had a id from localstorage
           socket.id = body.socketId;
         }
         new Room(socket, rooms, "roomCreated");
@@ -224,20 +226,23 @@ Deno.serve({ port: 8090 }, (req) => {
       case "fetchRoom":
         if (!rooms.rooms[body.id]) {
           if (!body.socketId) {
+            // todo: dry
             socket.id = getRandomString(20);
           } else {
             socket.id = body.socketId;
           }
           console.log("socket requested nonexistent room, creating one");
+          // someone went to a url that did't have a room ready, make one on the fly
           const room = new Room(socket, rooms, "gotRoom", body.id);
           socket.roomId = room.id;
         } else {
+          // todo: dry
           if (!body.socketId) {
             socket.id = getRandomString(20);
           } else {
             socket.id = body.socketId;
           }
-          // joining room
+          // joining room that exists
           const joined = rooms.rooms[body.id].join(socket);
           socket.roomId = body.id;
           if(joined){
@@ -246,6 +251,7 @@ Deno.serve({ port: 8090 }, (req) => {
         }
         break;
       case "keyPress":
+        // someone pushed a button
         rooms.rooms[socket.roomId].keyPress(socket, body.key);
     }
   });
