@@ -7,10 +7,21 @@ This is a rewrite of [an earlier version by Derek Arnold](https://github.com/lys
 * built with deno, cre, and a font.
 * no other deps required
 
-## build a binary (shove this in a bare alpine container with an entrypoint if u want)
+## building as a binary
 
 ```
 DOCKER_BUILDKIT=1 docker build --target binaries --output bin -f builder.dockerfile .
+```
+then you can run it like: ./bin/type from the root of this repo. it needs the files in ./gui to work
+
+## build and run as docker container
+
+note: rooms.json is used to persist chat history/room state. rooms are deleted entirely from memory and disk after 12 hours with no sockets connected
+
+```
+DOCKER_BUILDKIT=1 docker build --tag deno-builder:latest bin -f builder.dockerfile .
+docker build -t type2:latest .
+docker run -v ./rooms.json:/rooms.json -p 8089:8089 -p 8090:8090 type2:latest
 ```
 
 ## dev
@@ -24,7 +35,7 @@ curl -fsSL https://deno.land/x/install/install.sh | sh -s v1.9.2
 then
 
 ```
-deno run --unstable --watch -A --no-check server/index.mjs
+deno run --allow-read --allow-write --watch -A --no-check server/index.mjs
 ```
 
 if you change the gui code you need to refresh the browser tab

@@ -16,7 +16,7 @@ function getRandomString(s: number) {
   return ret;
 }
 
-Deno.serve({ port: 8089 }, (req) => {
+Deno.serve({ hostname: '0.0.0.0', port: 8089 }, (req) => {
   const pathname = new URL(req.url).pathname;
 
   if (pathname.startsWith("/gui")) {
@@ -206,7 +206,7 @@ class Rooms {
   }
 }
 const rooms = new Rooms();
-Deno.serve({ port: 8090 }, (req) => {
+Deno.serve({ hostname: '0.0.0.0', port: 8090 }, (req) => {
   if (req.headers.get("upgrade") != "websocket") {
     return new Response(null, { status: 501 });
   }

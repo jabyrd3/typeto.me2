@@ -5,6 +5,7 @@ RUN apk update && apk add libstdc++ \
   && rm -rf /lib/apk/db/* \
   && rm -rf /etc/profile.d/README \
   && rm -rf /usr/bin/c_rehash
-COPY --from=builder /app/app /app
+COPY --from=builder /type /app
+COPY gui /gui
 COPY entrypoint /usr/bin/entrypoint
 ENTRYPOINT ["/usr/bin/entrypoint"]
