@@ -232,6 +232,7 @@ if(touchDevice){
 }
 document.getElementById('openKeyboard').addEventListener('click', function(){
     var inputElement = document.getElementById('hiddenInput');
+    document.querySelector('#openKeyboard').style.display = 'none';
     inputElement.style.display = 'block'; // unhide the input
     inputElement.focus(); // focus on it so keyboard pops
     inputElement.style.visibility = 'hidden'; // hide it again
