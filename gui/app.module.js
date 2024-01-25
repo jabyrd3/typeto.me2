@@ -240,7 +240,7 @@ document.getElementById('openKeyboard').addEventListener('click', function(){
     document.querySelector('#openKeyboard').style.display = 'none';
     inputElement.style.visibility = 'visible'; // unhide the input
     inputElement.focus(); // focus on it so keyboard pops
-    inputElement.style.visibility = 'hidden'; // hide it again
+    // inputElement.style.visibility = 'hidden'; // hide it again
 });
 
 function fullRender(socketID, room) {
