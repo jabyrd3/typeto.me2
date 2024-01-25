@@ -226,9 +226,13 @@ function renderHeaders(room) {
   }
 }
 document.getElementById('hiddenInput').visibility = "hidden";
+var touchDevice = ('ontouchstart' in document.documentElement);
+if(touchDevice){
+  document.querySelector('#openKeyboard').style.visibility = 'visible';
+}
 document.getElementById('openKeyboard').addEventListener('click', function(){
     var inputElement = document.getElementById('hiddenInput');
-    inputElement.style.visibility = 'visible'; // unhide the input
+    inputElement.style.display = 'block'; // unhide the input
     inputElement.focus(); // focus on it so keyboard pops
     inputElement.style.visibility = 'hidden'; // hide it again
 });
