@@ -21,7 +21,7 @@ note: rooms.json is used to persist chat history/room state. rooms are deleted e
 ```
 DOCKER_BUILDKIT=1 docker build --tag deno-build:latest -f builder.dockerfile .
 docker build -t type2:latest .
-echo "{}" > rooms.json
+touch rooms.json
 docker run -d -v ./rooms.json:/rooms.json -p 8089:8089 -p 8090:8090 --restart unless-stopped type2:latest
 ```
 
