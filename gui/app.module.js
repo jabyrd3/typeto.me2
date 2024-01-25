@@ -151,22 +151,35 @@ function renderMine(socketID, room) {
   const myMessages = room.messages[socketID]
   let myMessagesDom;
   if (myMessages) {
-    myMessagesDom = cre('ul', myMessages.map((message, idx) => cre(`li${idx === myMessages.length - 1 ? '.cursor' : ''}`, message)))
+    myMessagesDom = cre('ul', myMessages.map((message, idx) => cre(`li${idx === myMessages.length - 1 ? '.cursor' : ''}`, message)));
   } else {
     myMessagesDom = cre('ul', cre('li.cursor'));
   }
   document.querySelector('#mine ul')?.remove()
-  document.querySelector('#mine').appendChild(myMessagesDom);
+  document.querySelector('#mine').appendChild(iterateAndLinkNodeList(myMessagesDom));
 }
-
+function iterateAndLinkNodeList(nl){
+  for (let i = 0; i < nl.childNodes.length; i++) {
+    const node = nl.childNodes[i];
+    node.innerHTML = linkify(node.innerText)
+  }
+  return nl;
+}
 function renderTheirs(socketId, room) {
   // const theirMessages = room.messages[Object.keys(room.messages).find(id => id !== socketID)]
   const theirMessages = Object.keys(room.messages).filter(id => socketId !== id).reduce((acc, id) => (acc.concat(room.messages[id])), [])
   if (theirMessages) {
-    const theirMessagesDom = cre('ul', theirMessages.map(message => cre('li', message)))
+    const theirMessagesDom = cre('ul', theirMessages.map(message => cre('li', linkify(message))))
     document.querySelector('#theirs ul')?.remove()
-    document.querySelector('#theirs').appendChild(theirMessagesDom);
+    document.querySelector('#theirs').appendChild(iterateAndLinkNodeList(theirMessagesDom));
   }
+}
+// if the regex is shit blame gpt, i can't be assed to do this cleaner at the moment
+function linkify(inputText) {
+  const urlRegex = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#/%?=~_|!:,.;]*[-A-Z0-9+&@#/%=~_|])/ig;
+  return inputText.replace(urlRegex, function(url) {
+    return '<a href="' + url + '">' + url + '</a>';
+  });
 }
 
 function padString(string) {
@@ -175,7 +188,7 @@ function padString(string) {
   const hyphens = Array.from({
     length: Math.floor(padding / 2)
   }).map(() => "-").join('')
-  return `${hyphens}= ${string} =${hyphens}`
+  return `${hyphens}= ${linkify(string)} =${hyphens}`
 }
 
 function renderHeaders() {
