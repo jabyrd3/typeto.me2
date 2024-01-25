@@ -64,7 +64,7 @@ class Room {
     }
     if (!this.messages[socket.id]?.slice(-2)[0]?.includes('has joined')){
       this.messages[socket.id].push(`> socket id ${socket.id} has joined at ${new Date().toLocaleString('en-US', { timeZoneName: 'short' })}`);
-      this.messages[socket.id].push(" ");
+      this.messages[socket.id].push('');
     }
     this.message(
       socket,
@@ -75,7 +75,7 @@ class Room {
   leave(id) {
     this.sockets = this.sockets.filter((socket) => socket.id !== id);
     this.messages[id].push(`> socket id ${id} has left at ${new Date().toLocaleString('en-US', { timeZoneName: 'short' })}`);
-    this.messages[id].push(' ');
+    this.messages[id].push('');
     if (this.sockets.length === 0) {
       rooms.removeRoom(this);
     }

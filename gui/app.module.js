@@ -62,20 +62,22 @@ class App {
         type: 'keyPress',
         key
       })
+      const msgs = this.room.messages[this.socketId];
       if (key !== 'Enter') {
         if (key === 'Space') {
-          this.room.messages[this.socketId].splice(-1, 1, this.room.messages[this.socketId].slice(-1)[0] + ' ')
+          msgs.splice(-1, 1, this.room.messages[this.socketId].slice(-1)[0] + ' ')
         }
         if (key === 'Backspace') {
-          this.room.messages[this.socketId].splice(-1, 1, this.room.messages[this.socketId].slice(-1)[0].slice(0, -1))
+          msgs.splice(-1, 1, this.room.messages[this.socketId].slice(-1)[0].slice(0, -1))
         }
         if (!nonEvents.includes(key)) {
-          this.room.messages[this.socketId].splice(-1, 1, this.room.messages[this.socketId].slice(-1)[0] + key)
+          msgs.splice(-1, 1, this.room.messages[this.socketId].slice(-1)[0] + key)
         }
       } else {
-        this.room.messages[this.socketId].push('')
+        msgs.push('')
+        renderMine(this.socketId, this.room);
       }
-      renderMine(this.socketId, this.room)
+      renderMyLast(msgs.slice(-1));
     }
   }
   teardown = () => {
@@ -124,23 +126,19 @@ class App {
         fullRender(this.socketId, this.room)
         break;
       case "committed":
-        const slice = this.room.messages[body.source]
-        const sl = slice.length
-        slice[sl - 1] = body.final
-        slice.push('')
+        const commitTarget = this.room.messages[body.source]
+        commitTarget.splice(-1, 1, body.final)
+        commitTarget.push('')
         renderTheirs(this.socketId, this.room)
         break;
       case "keyPress":
-        const target = this.room.messages[body.source]
-        // const len = target.length
-        // target[len - 1] += body.key
+        const pressTarget = this.room.messages[body.source]
         if (body.key === 'Backspace') {
-          target.splice(-1, 1, target.slice(-1)[0].slice(0, -1))
+          pressTarget.splice(-1, 1, pressTarget.slice(-1)[0].slice(0, -1))
         } else {
-          target.splice(-1, 1, target.slice(-1)[0] + body.key)
+          pressTarget.splice(-1, 1, pressTarget.slice(-1)[0] + body.key)
         }
-        // this.room.messages[body.source].splice(-1, 1, this.room.messages)
-        renderTheirs(this.socketId, this.room)
+        renderTheirLast(pressTarget.slice(-1));
         break;
     }
   };
@@ -163,6 +161,12 @@ function renderError(){
   document.querySelector('#main *').remove()
   document.querySelector('#main').appendChild(cre('div.error', 'Sorry, there are already 2 people in this room. press back or change the url pathname to start a new chat'));
 }
+function renderMyLast(message){
+  document.querySelector('#mine ul li:last-of-type').innerText = message;
+}
+function renderTheirLast(message){
+  document.querySelector('#theirs ul li:last-of-type').innerText = message;
+}
 function renderMine(socketID, room) {
   const myMessages = room.messages[socketID]
   let myMessagesDom;
@@ -182,7 +186,6 @@ function iterateAndLinkNodeList(nl){
   return nl;
 }
 function renderTheirs(socketId, room) {
-  // const theirMessages = room.messages[Object.keys(room.messages).find(id => id !== socketID)]
   const theirMessages = Object.keys(room.messages).filter(id => socketId !== id).reduce((acc, id) => (acc.concat(room.messages[id])), [])
   if (theirMessages) {
     const theirMessagesDom = cre('ul', theirMessages.map(message => cre('li', linkify(message))))
