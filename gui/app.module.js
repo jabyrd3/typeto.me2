@@ -25,7 +25,9 @@ class App {
       this.socketId = localStorage.getItem('socketId');
       const proto = window.location.protocol.includes('s') ? 'wss://' : 'ws://';
       const domain = window.location.hostname;
-      const port = 8090
+      const port = window.location.port.length > 0 ?
+        parseInt(window.location.port) + 1 :
+        proto === 'wss://' ? 444 : 81;
       this.ws = new WebSocket(`${proto}${domain}:${port}`);
       this.ws.addEventListener("open", this.rootHandler);
       this.ws.addEventListener("message", this.messageHandler);
