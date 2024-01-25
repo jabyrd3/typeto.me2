@@ -11,7 +11,7 @@
               font-variant-ligatures: none;
             }
             #openKeyboard {
-/*              display: none;*/
+              display: none;
               width: 100vw;
               height: 100vh;
               padding: '0px';
@@ -21,6 +21,9 @@
               left: 0;
               background-color: black;
               color: white;
+            }
+            #hiddenInput{
+              visibility: hidden;
             }
             body {
                 font-family: 'VT323', monospace;
@@ -337,7 +340,7 @@
             <div id="mine-header"></div>
             <div id="mine"></div>
             <button id="openKeyboard">Open Keyboard</button>
-            <input id="hiddenInput" style="visibility: hidden;">
+            <input id="hiddenInput">
         </div>
     </div>
     </body>
