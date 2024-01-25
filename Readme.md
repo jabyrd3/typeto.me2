@@ -19,7 +19,7 @@ then you can run it like: ./bin/type from the root of this repo. it needs the fi
 note: rooms.json is used to persist chat history/room state. rooms are deleted entirely from memory and disk after 12 hours with no sockets connected
 
 ```
-DOCKER_BUILDKIT=1 docker build --tag deno-builder:latest bin -f builder.dockerfile .
+DOCKER_BUILDKIT=1 docker build --tag deno-build:latest bin -f builder.dockerfile .
 docker build -t type2:latest .
 docker run -v ./rooms.json:/rooms.json -p 8089:8089 -p 8090:8090 type2:latest
 ```
