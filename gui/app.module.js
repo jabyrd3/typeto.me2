@@ -211,7 +211,7 @@ function renderHeaders(room) {
   const topMessage = window.app.clipped ? 
     `talkto.me 2 | chat link copied to your clipboard, give it to someone to start a chat` :
     `talkto.me 2 | give someone this url to chat: ${window.location.href}`;
-  const bottomMessage = room.participants > 1 ? `YOU${window.location.pathname}` : 'Waiting for your party to respond...';
+  const bottomMessage = room.participants > 1 ? `YOU ${window.location.pathname}`.replace('/','/ ') : 'Waiting for your party to respond...';
   const paddedTopMessage = padString(topMessage, true)
   const paddedBottomMessage = padString(bottomMessage)
   document.querySelector('#theirs-header').innerHTML = `<span ${room.participants < 2 ? 'class="pulsate"' : ''}>${paddedTopMessage}</span>`
