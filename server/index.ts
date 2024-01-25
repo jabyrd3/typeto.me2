@@ -97,11 +97,13 @@ class Room {
     }
   };
   render(socketId) {
+    const them = this.sockets.find(sock=>sock.id !== socketId);
     return {
       messages: this.messages,
       participants: this.sockets.length,
       id: this.id,
       yourId: socketId,
+      theirId: them ? them.id : undefined
     };
   }
   keyPress(socket, key) {

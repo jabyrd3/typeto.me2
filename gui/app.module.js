@@ -186,7 +186,7 @@ function iterateAndLinkNodeList(nl){
   return nl;
 }
 function renderTheirs(socketId, room) {
-  const theirMessages = Object.keys(room.messages).filter(id => socketId !== id).reduce((acc, id) => (acc.concat(room.messages[id])), [])
+  const theirMessages = room.theirId ? room.messages[room.theirId] : Object.keys(room.messages).filter(id => socketId !== id).reduce((acc, id) => (acc.concat(room.messages[id])), [])
   if (theirMessages) {
     const theirMessagesDom = cre('ul', theirMessages.map(message => cre('li', linkify(message))))
     document.querySelector('#theirs ul')?.remove()
