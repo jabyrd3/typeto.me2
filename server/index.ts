@@ -208,7 +208,7 @@ Deno.serve({ port: 8090 }, (req) => {
   };
   socket.addEventListener("close", () => {
     console.log(`socket id ${socket.id} closed`);
-    rooms.rooms[socket.roomId].leave(socket.id);
+    rooms.rooms[socket.roomId]?.leave(socket.id);
   });
   socket.addEventListener("message", (event) => {
     const body = JSON.parse(event.data);
