@@ -191,9 +191,9 @@ function padString(string) {
   return `${hyphens}= ${linkify(string)} =${hyphens}`
 }
 
-function renderHeaders() {
+function renderHeaders(room) {
   const topMessage = `talkto.me 2 | give someone this url to chat: ${window.location.href}`;
-  const bottomMessage = `YOU ${window.location.pathname}`;
+  const bottomMessage = room.participants > 1 ? `YOU ${window.location.pathname}` : 'Waiting for your party to respond...';
   const paddedTopMessage = padString(topMessage)
   const paddedBottomMessage = padString(bottomMessage)
   document.querySelector('#theirs-header').innerHTML = `<span>${paddedTopMessage}</span>`
@@ -201,7 +201,7 @@ function renderHeaders() {
 }
 
 function fullRender(socketID, room) {
-  renderHeaders();
+  renderHeaders(room);
   renderTheirs(socketID, room)
   renderMine(socketID, room)
 }
