@@ -225,9 +225,8 @@ function renderHeaders(room) {
     })
   }
 }
-document.getElementById('hiddenInput').visibility = "hidden";
-const isMobileDevice = /Mobi/i.test(window.navigator.userAgent)
 
+const isMobileDevice = /Mobi/i.test(window.navigator.userAgent)
 if(isMobileDevice){
   // window.alert('ismobile')
   document.querySelector('#openKeyboard').style.display = 'block';
@@ -235,10 +234,11 @@ if(isMobileDevice){
   // window.alert('isnotmobile')
   // window.alert(window.navigator.userAgent)
 }
+
 document.getElementById('openKeyboard').addEventListener('click', function(){
     var inputElement = document.getElementById('hiddenInput');
     document.querySelector('#openKeyboard').style.display = 'none';
-    inputElement.style.display = 'block'; // unhide the input
+    inputElement.style.visibility = 'visible'; // unhide the input
     inputElement.focus(); // focus on it so keyboard pops
     inputElement.style.visibility = 'hidden'; // hide it again
 });
