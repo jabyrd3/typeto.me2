@@ -240,6 +240,10 @@ document.getElementById('openKeyboard').addEventListener('click', function(){
     document.querySelector('#openKeyboard').style.display = 'none';
     inputElement.style.visibility = 'visible'; // unhide the input
     inputElement.focus(); // focus on it so keyboard pops
+    inputElement.addEventListener('keydown', window.app.keydownHandler);
+    inputElement.addEventListener('blur', () => {
+      document.querySelector('#openKeyboard').style.display = 'block';
+    })
     // inputElement.style.visibility = 'hidden'; // hide it again
 });
 
