@@ -226,8 +226,9 @@ function renderHeaders(room) {
   }
 }
 document.getElementById('hiddenInput').visibility = "hidden";
-var touchDevice = ('ontouchstart' in document.documentElement);
-if(touchDevice){
+const isMobileDevice = /Mobi/i.test(window.navigator.userAgent)
+
+if(isMobileDevice){
   document.querySelector('#openKeyboard').style.visibility = 'visible';
 }
 document.getElementById('openKeyboard').addEventListener('click', function(){
