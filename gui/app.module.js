@@ -179,8 +179,8 @@ function padString(string) {
 }
 
 function renderHeaders() {
-  const topMessage = 'talkto.me 2 | give someone this url to chat';
-  const bottomMessage = 'YOU';
+  const topMessage = `talkto.me 2 | give someone this url to chat: ${window.location.href}`;
+  const bottomMessage = `YOU ${window.location.pathname}`;
   const paddedTopMessage = padString(topMessage)
   const paddedBottomMessage = padString(bottomMessage)
   document.querySelector('#theirs-header').innerHTML = `<span>${paddedTopMessage}</span>`
