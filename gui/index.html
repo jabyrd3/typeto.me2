@@ -1,0 +1,140 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="description" content="sucessor to typetome without ancient node bullshit">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>typeto.me</title>
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+            * {
+              font-variant-ligatures: none;
+            }
+
+            body {
+                font-family: 'VT323', monospace;
+                background-color: black;
+                color: #FFB000;
+                font-size: 20px;
+                background-image: radial-gradient(
+                  rgba(40, 40, 40, 0.75), black 120%
+                );
+                height: 100vh;
+                text-shadow: 0 0 2px #FFB000;
+            }
+            ul{
+                white-space-collapse: preserve;
+                word-break: break-all;
+                position: absolute;
+                bottom: 0;
+                margin-block-end: 0;
+                margin-block-start: 0;
+                padding-inline-start: 16px;
+            }
+            li{
+                padding-bottom: 8px;
+                min-height: 20px;
+            }
+            .spacer{
+                height: 20px;
+                width: 0px;
+                display: block;
+            }
+            #theirs-wrap,
+            #mine-wrap{
+                height: 50vh;
+                width: 100vw;
+                float: left;
+                break: both;
+                position: fixed;
+                overflow: hidden;
+            }
+            #theirs, #mine{
+                height: calc(50vh - 20px);
+                top: 20px;
+                bottom: 0px;
+                overflow: hidden;
+                position: absolute;
+                width: 100vw;
+            }
+            #theirs-wrap{
+                top: 0;
+                left: 0;
+            }
+            #mine-wrap{
+                top: 50vh;
+                left: 0vh;
+            }
+            #theirs-header, #mine-header {
+                position: absolute;
+                width: 100vw;
+                top: 0;
+                left: 0;
+                text-align: center;
+                white-space: nowrap;
+            }
+            body::after {
+              content: "";
+              position: absolute;
+              top: 0;
+              left: 0;
+              width: 100vw;
+              height: 100vh;
+            }
+
+            ul {
+                list-style-type: none;
+            }
+            li {
+                position: relative;
+            }
+            .cursor::after {
+              content: "";
+              position: absolute;
+              /* Remove display: inline-block if not required to be on the same line as text etc */
+              display: inline-block;
+              background-color: #606060;
+              vertical-align: top;
+              width: 10px;
+              /* Set height to the line height of .text */
+              height: 20px;
+              /* 
+              Animation paramaters:
+              blink = animation-name, 
+              1s = animation-duration, 
+              step-end = animation-timing-function,
+              infinite = animation-iteration-count
+              */
+              -webkit-animation: blink 1s step-end infinite;
+              animation: blink 1s step-end infinite;
+            }
+
+            @-webkit-keyframes blink {
+              0% { opacity: 1.0; }
+              50% { opacity: 0.0; }
+              100% { opacity: 1.0; }
+            }
+
+            @keyframes blink {
+              0% { opacity: 1.0; }
+              50% { opacity: 0.0; }
+              100% { opacity: 1.0; }
+            }
+        </style>
+
+    </head>
+    <body>
+        
+        <script type="module" src="gui/app.module.js"></script>
+        <div id="main">
+        <div id="theirs-wrap">
+            <div id="theirs-header"></div>
+            <div id="theirs"></div>
+        </div>
+        <div id="mine-wrap">
+            <div id="mine-header"></div>
+            <div id="mine"></div>
+        </div>
+    </div>
+    </body>
+</html>

@@ -1,0 +1,194 @@
+import cre from 'https://unpkg.com/cre@0.3.0/cre.js';
+console.log("hey there pardner 🤠");
+const nonEvents = ['Shift', "Meta", "Control", "Alt", "Enter", "Escape", "Backspace"]
+
+class App {
+  constructor() {
+    this.socketId = localStorage.getItem('socketId');
+    this.setup();
+    this.connected = false;
+    setInterval(() => {
+      if (this.ws.readyState !== 1) {
+        this.connected = false;
+        this.teardown();
+        this.setup();
+        console.log('interval caught dead socket')
+      }
+    }, 5000)
+  }
+  setup = () => {
+    if (!this.connected) {
+      this.connected = true;
+      console.log('connecting...')
+      this.socketId = localStorage.getItem('socketId');
+      const proto = window.location.protocol.includes('s') ? 'wss://' : 'ws://';
+      const domain = window.location.hostname;
+      const port = 8090
+      this.ws = new WebSocket(`${proto}${domain}:${port}`);
+      this.ws.addEventListener("open", this.rootHandler);
+      this.ws.addEventListener("message", this.messageHandler);
+      this.ws.json = (obj) => {
+        this.ws.send(JSON.stringify({
+          ...obj,
+          socketId: this.socketId
+        }))
+      }
+      window.addEventListener("keydown", this.keydownHandler);
+      this.pasteListener = document.addEventListener("paste", evt => {
+        var clipboardData = evt.clipboardData || window.clipboardData;
+        var pastedText = clipboardData.getData("text/plain");
+        pastedText.split('').map(char => this.ws.json({
+          type: 'keyPress',
+          key: char
+        }))
+        this.room.messages[this.socketId].splice(-1, 1, this.room.messages[this.socketId].slice(-1)[0] + pastedText)
+        renderMine(this.socketId, this.room)
+      });
+
+    }
+  }
+  keydownHandler = (evt) => {
+    const {
+      key
+    } = evt;
+    if (!evt.metaKey && !evt.ctrlKey) {
+      const target = this.room.messages[this.socketId];
+      this.ws.json({
+        type: 'keyPress',
+        key
+      })
+      if (key !== 'Enter') {
+        if (key === 'Space') {
+          this.room.messages[this.socketId].splice(-1, 1, this.room.messages[this.socketId].slice(-1)[0] + ' ')
+        }
+        if (key === 'Backspace') {
+          this.room.messages[this.socketId].splice(-1, 1, this.room.messages[this.socketId].slice(-1)[0].slice(0, -1))
+        }
+        if (!nonEvents.includes(key)) {
+          this.room.messages[this.socketId].splice(-1, 1, this.room.messages[this.socketId].slice(-1)[0] + key)
+        }
+      } else {
+        this.room.messages[this.socketId].push('')
+      }
+    }
+    renderMine(this.socketId, this.room)
+  }
+  teardown = () => {
+    console.log('teardown hit, reconecting?');
+    try {
+      this.ws.close();
+    } catch (e) {
+      console.log('ws already closed');
+    }
+    window.removeEventListener("keydown", this.keydownHandler);
+    document.removeEventListener("paste", this.pasteListener);
+  }
+  rootHandler = () => {
+    this.connected = true;
+    if (window.location.pathname === "/") {
+      this.ws.json({
+        type: "newroom",
+      });
+    } else {
+      this.ws.json({
+        type: 'fetchRoom',
+        id: window.location.pathname.replace('/', '')
+      })
+    }
+  };
+  messageHandler = (raw) => {
+    const body = JSON.parse(raw.data);
+    if (body?.room?.yourId) {
+      this.socketId = body.room.yourId
+      localStorage.setItem('socketId', this.socketId)
+    }
+    switch (body.type) {
+      case "room-is-crowded":
+        renderError();
+      break;
+      case "roomCreated":
+        window.history.pushState("chatpage", `Chat ${body.room.id}`, `/${body.room.id}`);
+        this.room = body.room;
+        fullRender(this.socketId, this.room)
+        break;
+      case "gotRoom":
+        if(window.location.pathname === '/'){
+          window.history.pushState("chatpage", `Chat ${body.room.id}`, `/${body.room.id}`);
+        }
+        this.room = body.room;
+        fullRender(this.socketId, this.room)
+        break;
+      case "committed":
+        const slice = this.room.messages[body.source]
+        const sl = slice.length
+        slice[sl - 1] = body.final
+        slice.push('')
+        renderTheirs(this.socketId, this.room)
+        break;
+      case "keyPress":
+        const target = this.room.messages[body.source]
+        // const len = target.length
+        // target[len - 1] += body.key
+        if (body.key === 'Backspace') {
+          target.splice(-1, 1, target.slice(-1)[0].slice(0, -1))
+        } else {
+          target.splice(-1, 1, target.slice(-1)[0] + body.key)
+        }
+        // this.room.messages[body.source].splice(-1, 1, this.room.messages)
+        renderTheirs(this.socketId, this.room)
+        break;
+    }
+  };
+}
+const app = await new App();
+window.app = app;
+window.addEventListener('resize', renderHeaders);
+function renderError(){
+  document.querySelector('#main *').remove()
+  document.querySelector('#main').appendChild(cre('div.error', 'Sorry, there are already 2 people in this room. press back or change the url pathname to start a new chat'));
+}
+function renderMine(socketID, room) {
+  const myMessages = room.messages[socketID]
+  let myMessagesDom;
+  if (myMessages) {
+    myMessagesDom = cre('ul', myMessages.map((message, idx) => cre(`li${idx === myMessages.length - 1 ? '.cursor' : ''}`, message)))
+  } else {
+    myMessagesDom = cre('ul', cre('li.cursor'));
+  }
+  document.querySelector('#mine ul')?.remove()
+  document.querySelector('#mine').appendChild(myMessagesDom);
+}
+
+function renderTheirs(socketId, room) {
+  // const theirMessages = room.messages[Object.keys(room.messages).find(id => id !== socketID)]
+  const theirMessages = Object.keys(room.messages).filter(id => socketId !== id).reduce((acc, id) => (acc.concat(room.messages[id])), [])
+  if (theirMessages) {
+    const theirMessagesDom = cre('ul', theirMessages.map(message => cre('li', message)))
+    document.querySelector('#theirs ul')?.remove()
+    document.querySelector('#theirs').appendChild(theirMessagesDom);
+  }
+}
+
+function padString(string) {
+  const widthInHyphens = window.innerWidth / 8;
+  const padding = widthInHyphens - string.length - 4;
+  const hyphens = Array.from({
+    length: Math.floor(padding / 2)
+  }).map(() => "-").join('')
+  return `${hyphens}= ${string} =${hyphens}`
+}
+
+function renderHeaders() {
+  const topMessage = 'talkto.me 2 | give someone this url to chat';
+  const bottomMessage = 'YOU';
+  const paddedTopMessage = padString(topMessage)
+  const paddedBottomMessage = padString(bottomMessage)
+  document.querySelector('#theirs-header').innerHTML = `<span>${paddedTopMessage}</span>`
+  document.querySelector('#mine-header').innerHTML = `<span>${paddedBottomMessage}</span>`
+}
+
+function fullRender(socketID, room) {
+  renderHeaders();
+  renderTheirs(socketID, room)
+  renderMine(socketID, room)
+}
