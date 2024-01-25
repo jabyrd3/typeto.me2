@@ -1,11 +1,15 @@
 # typeto.me 2
-typeto.me 2 is a character-level realtime chat, like the old [talk program](https://en.wikipedia.org/wiki/Talk_(software)) on Unix and Unix-like operating systems.
 
-This is a rewrite of [an earlier version by Derek Arnold](https://github.com/lysol/typeto.me).
+typeto.me 2 is a character-level realtime chat, like the old
+[talk program](https://en.wikipedia.org/wiki/Talk_(software)) on Unix and
+Unix-like operating systems.
 
-* some nostalgic crt bling.
-* built with deno, cre, and a font.
-* no other deps required
+This is a rewrite of
+[an earlier version by Derek Arnold](https://github.com/lysol/typeto.me).
+
+- some nostalgic crt bling.
+- built with deno, cre, and a font.
+- no other deps required
 
 [try it out!](https://typeto.me)
 
@@ -14,11 +18,14 @@ This is a rewrite of [an earlier version by Derek Arnold](https://github.com/lys
 ```
 DOCKER_BUILDKIT=1 docker build --target binaries --output bin -f builder.dockerfile .
 ```
-then you can run it like: ./bin/type from the root of this repo. it needs the files in ./gui to work
+
+then you can run it like: ./bin/type from the root of this repo. it needs the
+files in ./gui to work
 
 ## build and run as docker container
 
-note: rooms.json is used to persist chat history/room state. rooms are deleted entirely from memory and disk after 12 hours with no sockets connected
+note: rooms.json is used to persist chat history/room state. rooms are deleted
+entirely from memory and disk after 12 hours with no sockets connected
 
 ```
 DOCKER_BUILDKIT=1 docker build --tag deno-build:latest -f builder.dockerfile .
@@ -47,11 +54,16 @@ but it gives you live-dev with the ts type checking off for the backend code.
 
 # networking, ports, proxies, etc
 
-the browser needs to establish a websocket connection to the backend for this to function. in order to keep this as-simple as possible, the browser figures out how to do that based on a few rules:
+the browser needs to establish a websocket connection to the backend for this to
+function. in order to keep this as-simple as possible, the browser figures out
+how to do that based on a few rules:
 
-- if the url of the page contains https, it will attempt to use the wss:// protocol, which requires a reverse proxy with valid tls certs
-- if the url of the page doesn't include an explicit port, it will use 81 or 444 as the defaults for ws:// or wss:// respectively
-- if the url of the page does contain an explicit port, it will attempt to connect to that port + 1 regardless of the protocol
+- if the url of the page contains https, it will attempt to use the wss://
+  protocol, which requires a reverse proxy with valid tls certs
+- if the url of the page doesn't include an explicit port, it will use 81 or 444
+  as the defaults for ws:// or wss:// respectively
+- if the url of the page does contain an explicit port, it will attempt to
+  connect to that port + 1 regardless of the protocol
 
 ## proxying with apache2
 
@@ -78,6 +90,5 @@ Here is an example SSL reverse proxy configuration:
 
 # credits
 
-[Jordan Byrd](https://jordanbyrd.com/) did all the work; [Daniel](https://3e.org/dmd/) nagged him to do it.
-
-
+[Jordan Byrd](https://jordanbyrd.com/) did all the work;
+[Daniel](https://3e.org/dmd/) nagged him to do it.

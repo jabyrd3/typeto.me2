@@ -16,7 +16,7 @@ function getRandomString(s: number) {
   return ret;
 }
 
-Deno.serve({ hostname: '0.0.0.0', port: 8089 }, (req) => {
+Deno.serve({ hostname: "0.0.0.0", port: 8089 }, (req) => {
   const pathname = new URL(req.url).pathname;
 
   if (pathname.startsWith("/gui")) {
@@ -54,17 +54,23 @@ class Room {
     ];
   }
   join(socket) {
-    console.log(`socket id ${socket.id} joining room ${this.id}, there are already ${this.sockets.length} sockets connected`);
-    if(this.sockets.length > 1){
-      return socket.json({type: 'room-is-crowded'});
+    console.log(
+      `socket id ${socket.id} joining room ${this.id}, there are already ${this.sockets.length} sockets connected`,
+    );
+    if (this.sockets.length > 1) {
+      return socket.json({ type: "room-is-crowded" });
     }
     this.sockets.push(socket);
     if (!this.messages[socket.id]) {
       this.messages[socket.id] = [""];
     }
-    if (!this.messages[socket.id]?.slice(-2)[0]?.includes('has joined')){
-      this.messages[socket.id].push(`> socket id ${socket.id} has joined at ${new Date().toLocaleString('en-US', { timeZoneName: 'short' })}`);
-      this.messages[socket.id].push('');
+    if (!this.messages[socket.id]?.slice(-2)[0]?.includes("has joined")) {
+      this.messages[socket.id].push(
+        `> socket id ${socket.id} has joined at ${
+          new Date().toLocaleString("en-US", { timeZoneName: "short" })
+        }`,
+      );
+      this.messages[socket.id].push("");
     }
     this.message(
       socket,
@@ -74,13 +80,17 @@ class Room {
   }
   leave(id) {
     this.sockets = this.sockets.filter((socket) => socket.id !== id);
-    this.messages[id].push(`> socket id ${id} has left at ${new Date().toLocaleString('en-US', { timeZoneName: 'short' })}`);
-    this.messages[id].push('');
+    this.messages[id].push(
+      `> socket id ${id} has left at ${
+        new Date().toLocaleString("en-US", { timeZoneName: "short" })
+      }`,
+    );
+    this.messages[id].push("");
     if (this.sockets.length === 0) {
       rooms.removeRoom(this);
     }
     this.message(
-      {id},
+      { id },
       (sock) => ({ type: "gotRoom", room: this.render(sock.id) }),
       true,
     );
@@ -97,13 +107,13 @@ class Room {
     }
   };
   render(socketId) {
-    const them = this.sockets.find(sock=>sock.id !== socketId);
+    const them = this.sockets.find((sock) => sock.id !== socketId);
     return {
       messages: this.messages,
       participants: this.sockets.length,
       id: this.id,
       yourId: socketId,
-      theirId: them ? them.id : undefined
+      theirId: them ? them.id : undefined,
     };
   }
   keyPress(socket, key) {
@@ -138,7 +148,7 @@ class Rooms {
       const data = Deno.readFileSync("./rooms.json");
       this.cachedRooms = JSON.parse(decoder.decode(data));
     } catch (e) {
-      console.log('no rooms.json present, setting cachedRooms to empty object');
+      console.log("no rooms.json present, setting cachedRooms to empty object");
       this.cachedRooms = {};
     }
     setInterval(this.writeRooms, 10000);
@@ -208,7 +218,7 @@ class Rooms {
   }
 }
 const rooms = new Rooms();
-Deno.serve({ hostname: '0.0.0.0', port: 8090 }, (req) => {
+Deno.serve({ hostname: "0.0.0.0", port: 8090 }, (req) => {
   if (req.headers.get("upgrade") != "websocket") {
     return new Response(null, { status: 501 });
   }
@@ -258,7 +268,7 @@ Deno.serve({ hostname: '0.0.0.0', port: 8090 }, (req) => {
           // joining room that exists
           const joined = rooms.rooms[body.id].join(socket);
           socket.roomId = body.id;
-          if(joined){
+          if (joined) {
             rooms.reviveRoom(body);
           }
         }
