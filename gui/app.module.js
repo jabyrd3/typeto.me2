@@ -7,6 +7,8 @@ class App {
     this.socketId = localStorage.getItem('socketId');
     this.setup();
     this.connected = false;
+    this.clipped = false;
+    window.clippy = this.clipboard;
     setInterval(() => {
       if (this.ws.readyState !== 1) {
         this.connected = false;
@@ -70,8 +72,8 @@ class App {
       } else {
         this.room.messages[this.socketId].push('')
       }
+      renderMine(this.socketId, this.room)
     }
-    renderMine(this.socketId, this.room)
   }
   teardown = () => {
     console.log('teardown hit, reconecting?');
@@ -139,10 +141,21 @@ class App {
         break;
     }
   };
+
+  clipboard = (type, rawMessage) => {
+    this.clipped = true;
+    renderHeaders(this.room);
+      const data = [
+          new ClipboardItem({
+              [type]: new Blob([rawMessage], { type }),
+          }),
+      ];
+      return navigator.clipboard.write(data);
+  }
 }
 const app = await new App();
 window.app = app;
-window.addEventListener('resize', renderHeaders);
+window.addEventListener('resize', () => renderHeaders(window.app.room));
 function renderError(){
   document.querySelector('#main *').remove()
   document.querySelector('#main').appendChild(cre('div.error', 'Sorry, there are already 2 people in this room. press back or change the url pathname to start a new chat'));
@@ -175,29 +188,40 @@ function renderTheirs(socketId, room) {
   }
 }
 // if the regex is shit blame gpt, i can't be assed to do this cleaner at the moment
-function linkify(inputText) {
+function linkify(inputText, copy) {
   const urlRegex = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#/%?=~_|!:,.;]*[-A-Z0-9+&@#/%=~_|])/ig;
   return inputText.replace(urlRegex, function(url) {
-    return '<a href="' + url + '">' + url + '</a>';
+    return `<a href="${url}" ${copy ? 'class="copyable"' : ''}>${url}</a>`;
   });
 }
 
-function padString(string) {
+
+function padString(string, clip) {
   const widthInHyphens = window.innerWidth / 8;
   const padding = widthInHyphens - string.length - 4;
   const hyphens = Array.from({
     length: Math.floor(padding / 2)
   }).map(() => "-").join('')
-  return `${hyphens}= <span class="message">${linkify(string)}</span> =${hyphens}`
+  return `${hyphens}= <span class="message">${linkify(string, clip)}</span> =${hyphens}`
 }
 
 function renderHeaders(room) {
-  const topMessage = `talkto.me 2 | give someone this url to chat: ${window.location.href}`;
+  const topMessage = window.app.clipped ? 
+    `talkto.me 2 | chat link copied to your clipboard, give it to someone to start a chat` :
+    `talkto.me 2 | give someone this url to chat: ${window.location.href}`;
   const bottomMessage = room.participants > 1 ? `YOU ${window.location.pathname}` : 'Waiting for your party to respond...';
-  const paddedTopMessage = padString(topMessage)
+  const paddedTopMessage = padString(topMessage, true)
   const paddedBottomMessage = padString(bottomMessage)
   document.querySelector('#theirs-header').innerHTML = `<span ${room.participants < 2 ? 'class="pulsate"' : ''}>${paddedTopMessage}</span>`
   document.querySelector('#mine-header').innerHTML = `<span>${paddedBottomMessage}</span>`
+  const copyableLinks = document.querySelectorAll('.copyable');
+  for (let i = 0; i < copyableLinks.length; i++) {
+    const link = copyableLinks[i];
+    link.addEventListener('click', e=>{
+      e.preventDefault();
+      window.app.clipboard('text/plain', e.srcElement.href);
+    })
+  }
 }
 
 function fullRender(socketID, room) {
