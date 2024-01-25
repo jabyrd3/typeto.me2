@@ -229,7 +229,11 @@ document.getElementById('hiddenInput').visibility = "hidden";
 const isMobileDevice = /Mobi/i.test(window.navigator.userAgent)
 
 if(isMobileDevice){
+  window.alert('ismobile')
   document.querySelector('#openKeyboard').style.visibility = 'visible';
+}else{
+  window.alert('isnotmobile')
+  window.alert(window.navigator.userAgent)
 }
 document.getElementById('openKeyboard').addEventListener('click', function(){
     var inputElement = document.getElementById('hiddenInput');
