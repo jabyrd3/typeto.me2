@@ -196,7 +196,7 @@ function renderHeaders(room) {
   const bottomMessage = room.participants > 1 ? `YOU ${window.location.pathname}` : 'Waiting for your party to respond...';
   const paddedTopMessage = padString(topMessage)
   const paddedBottomMessage = padString(bottomMessage)
-  document.querySelector('#theirs-header').innerHTML = `<span>${paddedTopMessage}</span>`
+  document.querySelector('#theirs-header').innerHTML = `<span ${room.participants < 2 ? 'class="pulsate"' : ''}>${paddedTopMessage}</span>`
   document.querySelector('#mine-header').innerHTML = `<span>${paddedBottomMessage}</span>`
 }
 
