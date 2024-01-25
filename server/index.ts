@@ -135,11 +135,11 @@ class Rooms {
       const decoder = new TextDecoder("utf-8");
       const data = Deno.readFileSync("./rooms.json");
       this.cachedRooms = JSON.parse(decoder.decode(data));
-      setInterval(this.writeRooms, 10000);
     } catch (e) {
       console.log('no rooms.json present, setting cachedRooms to empty object');
       this.cachedRooms = {};
     }
+    setInterval(this.writeRooms, 10000);
   }
   setLastUpdate = (force) => {
     if (force) {
