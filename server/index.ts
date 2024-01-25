@@ -126,7 +126,7 @@ class Rooms {
       this.cachedRooms = JSON.parse(decoder.decode(data));
       setInterval(this.writeRooms, 10000);
     } catch (e) {
-      console.log("e", e);
+      console.log('no rooms.json present, setting cachedRooms to empty object');
       this.cachedRooms = {};
     }
   }
