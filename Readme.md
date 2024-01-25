@@ -1,5 +1,5 @@
 # this is a deno rewrite of typeto.me
-emulates 
+emulates ytalk with some nostalgic crt bling. built with deno, cre, and a font. no other deps required
 
 ## build a binary (shove this in a bare alpine container with an entrypoint if u want)
 
