@@ -1,4 +1,5 @@
 import cre from 'https://unpkg.com/cre@0.3.0/cre.js';
+import ghIconModule from './gh-icon.module.js';
 console.log("hey there pardner 🤠");
 const nonEvents = ['Shift', "Meta", "Control", "Alt", "Enter", "Escape", "Backspace"]
 
@@ -208,11 +209,14 @@ function padString(string, clip) {
 }
 
 function renderHeaders(room) {
-  const topMessage = window.app.clipped ? 
-    `talkto.me 2 | chat link copied to your clipboard, give it to someone to start a chat` :
-    `talkto.me 2 | give someone this url to chat: ${window.location.href}`;
+  const topMessage = room.participants > 1 ?
+    `talkto.me 2 | issues: https://github.com/jabyrd3/typeto.me2/issues` :
+    window.app.clipped ? 
+      `talkto.me 2 | chat link copied to your clipboard, give it to someone to start a chat` :
+      `talkto.me 2 | give someone this url to chat: ${window.location.href}`;
   const bottomMessage = room.participants > 1 ? `YOU${window.location.pathname}` : 'Waiting for your party to respond...';
-  const paddedTopMessage = padString(topMessage, true)
+  const paddedTopMessage = padString(topMessage, room.participants.length < 2)
+    .replace('talkto.me 2', `<a href="https://github.com/jabyrd3/typeto.me2">talkto.me 2${ghIconModule}</a>`)
   const paddedBottomMessage = padString(bottomMessage)
   document.querySelector('#theirs-header').innerHTML = `<span ${room.participants < 2 ? 'class="pulsate"' : ''}>${paddedTopMessage}</span>`
   document.querySelector('#mine-header').innerHTML = `<span>${paddedBottomMessage}</span>`
