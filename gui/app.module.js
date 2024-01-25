@@ -188,7 +188,7 @@ function padString(string) {
   const hyphens = Array.from({
     length: Math.floor(padding / 2)
   }).map(() => "-").join('')
-  return `${hyphens}= ${linkify(string)} =${hyphens}`
+  return `${hyphens}= <span class="message">${linkify(string)}</span> =${hyphens}`
 }
 
 function renderHeaders(room) {
