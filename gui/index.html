@@ -45,6 +45,24 @@
                 width: 0px;
                 display: block;
             }
+            .scanlines{
+                content: " ";
+                display: block;
+                position: absolute;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                right: 0;
+                background: linear-gradient(
+                    to bottom,
+                    rgba(18, 16, 16, 0) 50%,
+                    rgba(0, 0, 0, 0.25) 50%
+                );
+                background-size: 100% 3px;
+                z-index: 2;
+                pointer-events: none;
+
+            }
             #theirs-wrap,
             #mine-wrap{
                 height: 50vh;
@@ -301,7 +319,7 @@
     <body>
         
         <script type="module" src="gui/app.module.js"></script>
-        <div id="main">
+        <div id="main" class="scanlines">
         <div id="theirs-wrap">
             <div id="theirs-header"></div>
             <div id="theirs"></div>
