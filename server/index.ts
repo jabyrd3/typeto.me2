@@ -61,6 +61,9 @@ class Room {
       return socket.json({ type: "room-is-crowded" });
     }
     this.sockets.push(socket);
+    if (this.sockets.length == 2) {
+        console.log(`room ${this.id} started chatting`);
+    }
     if (!this.messages[socket.id]) {
       this.messages[socket.id] = [""];
     }
@@ -86,6 +89,9 @@ class Room {
       }`,
     );
     this.messages[id].push("");
+    if (this.sockets.length == 1) {
+        console.log(`room ${this.id} stopped chatting`);
+    }
     if (this.sockets.length === 0) {
       rooms.removeRoom(this);
     }
@@ -230,7 +236,7 @@ Deno.serve({ hostname: "0.0.0.0", port: 8090 }, (req) => {
     socket.send(JSON.stringify(obj));
   };
   socket.addEventListener("close", () => {
-    console.log(`socket id ${socket.id} closed`);
+    console.log(`socket id ${socket.id} closed, leaving room ${socket.roomId}`);
     rooms.rooms[socket.roomId]?.leave(socket.id);
   });
   socket.addEventListener("message", (event) => {
