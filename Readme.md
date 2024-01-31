@@ -28,9 +28,8 @@ note: rooms.json is used to persist chat history/room state. rooms are deleted
 entirely from memory and disk after 12 hours with no sockets connected
 
 ```
-DOCKER_BUILDKIT=1 docker build --tag deno-build:latest -f builder.dockerfile .
 docker build -t type2:latest .
-touch rooms.json
+touch rooms.json   # prevent Docker from creating a directory if not present
 docker compose up -d
 ```
 
