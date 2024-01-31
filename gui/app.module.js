@@ -34,12 +34,9 @@ class App {
       this.socketId = localStorage.getItem("socketId");
       const proto = window.location.protocol.includes("s") ? "wss://" : "ws://";
       const domain = window.location.hostname;
-      const port = window.location.port.length > 0
-        ? parseInt(window.location.port) + 1
-        : proto === "wss://"
-        ? 444
-        : 81;
-      this.ws = new WebSocket(`${proto}${domain}:${port}`);
+      const wsPath = "/ws"; // WebSocket endpoint path
+      this.ws = new WebSocket(`${proto}${domain}:${window.location.port}${wsPath}`);
+
       this.ws.addEventListener("open", this.rootHandler);
       this.ws.addEventListener("message", this.messageHandler);
       this.ws.json = (obj) => {
@@ -255,9 +252,8 @@ function linkify(inputText, copy) {
   const urlRegex =
     /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#/%?=~_|!:,.;]*[-A-Z0-9+&@#/%=~_|])/ig;
   return inputText.replace(urlRegex, function (url) {
-    return `<a href="${url}" ${
-      copy ? 'class="copyable"' : 'target="_blank"'
-    }>${url}</a>`;
+    return `<a href="${url}" ${copy ? 'class="copyable"' : 'target="_blank"'
+      }>${url}</a>`;
   });
 }
 
@@ -267,17 +263,16 @@ function padString(string, clip) {
   const hyphens = Array.from({
     length: Math.floor(padding / 2),
   }).map(() => "-").join("");
-  return `${hyphens}= <span class="message">${
-    linkify(string, clip)
-  }</span> =${hyphens}`;
+  return `${hyphens}= <span class="message">${linkify(string, clip)
+    }</span> =${hyphens}`;
 }
 
 function renderHeaders(room) {
   const topMessage = room.participants > 1
     ? `talkto.me 2 | issues: https://github.com/jabyrd3/typeto.me2/issues`
     : window.app.clipped
-    ? `talkto.me 2 | chat link copied to your clipboard, give it to someone to start a chat`
-    : `talkto.me 2 | give someone this url to chat: ${window.location.href}`;
+      ? `talkto.me 2 | chat link copied to your clipboard, give it to someone to start a chat`
+      : `talkto.me 2 | give someone this url to chat: ${window.location.href}`;
   const bottomMessage = room.participants > 1
     ? `YOU${window.location.pathname}`
     : "Waiting for your party to respond...";
@@ -287,9 +282,8 @@ function renderHeaders(room) {
       `<a target="_blank" href="https://github.com/jabyrd3/typeto.me2">talkto.me 2${ghIconModule}</a>`,
     );
   const paddedBottomMessage = padString(bottomMessage);
-  document.querySelector("#theirs-header").innerHTML = `<span ${
-    room.participants < 2 ? 'class="pulsate"' : ""
-  }>${paddedTopMessage}</span>`;
+  document.querySelector("#theirs-header").innerHTML = `<span ${room.participants < 2 ? 'class="pulsate"' : ""
+    }>${paddedTopMessage}</span>`;
   document.querySelector("#mine-header").innerHTML =
     `<span>${paddedBottomMessage}</span>`;
   const copyableLinks = document.querySelectorAll(".copyable");

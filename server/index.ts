@@ -16,18 +16,6 @@ function getRandomString(s: number) {
   return ret;
 }
 
-Deno.serve({ hostname: "0.0.0.0", port: 8089 }, (req) => {
-  const pathname = new URL(req.url).pathname;
-
-  if (pathname.startsWith("/gui")) {
-    return serveDir(req, {
-      fsRoot: "gui",
-      urlRoot: "gui",
-    });
-  } else {
-    return serveFile(req, "gui/index.html");
-  }
-});
 class Room {
   constructor(socket, rooms, emit, id) {
     this.sockets = [];
@@ -62,15 +50,14 @@ class Room {
     }
     this.sockets.push(socket);
     if (this.sockets.length == 2) {
-        console.log(`room ${this.id} started chatting`);
+      console.log(`room ${this.id} started chatting`);
     }
     if (!this.messages[socket.id]) {
       this.messages[socket.id] = [""];
     }
     if (!this.messages[socket.id]?.slice(-2)[0]?.includes("has joined")) {
       this.messages[socket.id].push(
-        `> socket id ${socket.id} has joined at ${
-          new Date().toISOString().replace('T',' ').split('.')[0]+"Z"
+        `> socket id ${socket.id} has joined at ${new Date().toISOString().replace('T', ' ').split('.')[0] + "Z"
         }`,
       );
       this.messages[socket.id].push("");
@@ -84,13 +71,12 @@ class Room {
   leave(id) {
     this.sockets = this.sockets.filter((socket) => socket.id !== id);
     this.messages[id].push(
-      `> socket id ${id} has left at ${
-        new Date().toISOString().replace('T',' ').split('.')[0]+"Z"
+      `> socket id ${id} has left at ${new Date().toISOString().replace('T', ' ').split('.')[0] + "Z"
       }`,
     );
     this.messages[id].push("");
     if (this.sockets.length == 1) {
-        console.log(`room ${this.id} stopped chatting`);
+      console.log(`room ${this.id} stopped chatting`);
     }
     if (this.sockets.length === 0) {
       rooms.removeRoom(this);
@@ -206,8 +192,7 @@ class Rooms {
     delete this.cachedRooms[room];
     this.setLastUpdate();
     console.log(
-      `room ${room} deleted permanently. ${
-        Object.keys(this.rooms).length
+      `room ${room} deleted permanently. ${Object.keys(this.rooms).length
       } remain`,
     );
   }
@@ -224,65 +209,80 @@ class Rooms {
   }
 }
 const rooms = new Rooms();
-Deno.serve({ hostname: "0.0.0.0", port: 8090 }, (req) => {
-  if (req.headers.get("upgrade") != "websocket") {
-    return new Response(null, { status: 501 });
-  }
-  const { socket, response } = Deno.upgradeWebSocket(req);
-  socket.addEventListener("open", () => {
-    console.log("a client connected!");
-  });
-  socket.json = (obj) => {
-    socket.send(JSON.stringify(obj));
-  };
-  socket.addEventListener("close", () => {
-    console.log(`socket id ${socket.id} closed, leaving room ${socket.roomId}`);
-    rooms.rooms[socket.roomId]?.leave(socket.id);
-  });
-  socket.addEventListener("message", (event) => {
-    const body = JSON.parse(event.data);
-    switch (body.type) {
-      case "newroom":
-        // fresh connection
-        if (!body.socketId) {
-          socket.id = getRandomString(20);
-        } else {
-          // buddy had a id from localstorage
-          socket.id = body.socketId;
-        }
-        new Room(socket, rooms, "roomCreated");
-        break;
-      case "fetchRoom":
-        if (!rooms.rooms[body.id]) {
-          if (!body.socketId) {
-            // todo: dry
-            socket.id = getRandomString(20);
-          } else {
-            socket.id = body.socketId;
-          }
-          console.log("socket requested nonexistent room, creating one");
-          // someone went to a url that did't have a room ready, make one on the fly
-          const room = new Room(socket, rooms, "gotRoom", body.id);
-          socket.roomId = room.id;
-        } else {
-          // todo: dry
-          if (!body.socketId) {
-            socket.id = getRandomString(20);
-          } else {
-            socket.id = body.socketId;
-          }
-          // joining room that exists
-          const joined = rooms.rooms[body.id].join(socket);
-          socket.roomId = body.id;
-          if (joined) {
-            rooms.reviveRoom(body);
-          }
-        }
-        break;
-      case "keyPress":
-        // someone pushed a button
-        rooms.rooms[socket.roomId].keyPress(socket, body.key);
+
+Deno.serve({ hostname: "0.0.0.0", port: 8090 }, async (req) => {
+  const url = new URL(req.url);
+  if (url.pathname === '/ws') {
+    if (req.headers.get("upgrade") != "websocket") {
+      return new Response(null, { status: 501 });
     }
-  });
-  return response;
+    const { socket, response } = Deno.upgradeWebSocket(req);
+    socket.addEventListener("open", () => {
+      console.log("a client connected!");
+    });
+    socket.json = (obj) => {
+      socket.send(JSON.stringify(obj));
+    };
+    socket.addEventListener("close", () => {
+      console.log(`socket id ${socket.id} closed, leaving room ${socket.roomId}`);
+      rooms.rooms[socket.roomId]?.leave(socket.id);
+    });
+    socket.addEventListener("message", (event) => {
+      const body = JSON.parse(event.data);
+      switch (body.type) {
+        case "newroom":
+          // fresh connection
+          if (!body.socketId) {
+            socket.id = getRandomString(20);
+          } else {
+            // buddy had a id from localstorage
+            socket.id = body.socketId;
+          }
+          new Room(socket, rooms, "roomCreated");
+          break;
+        case "fetchRoom":
+          if (!rooms.rooms[body.id]) {
+            if (!body.socketId) {
+              // todo: dry
+              socket.id = getRandomString(20);
+            } else {
+              socket.id = body.socketId;
+            }
+            console.log("socket requested nonexistent room, creating one");
+            // someone went to a url that did't have a room ready, make one on the fly
+            const room = new Room(socket, rooms, "gotRoom", body.id);
+            socket.roomId = room.id;
+          } else {
+            // todo: dry
+            if (!body.socketId) {
+              socket.id = getRandomString(20);
+            } else {
+              socket.id = body.socketId;
+            }
+            // joining room that exists
+            const joined = rooms.rooms[body.id].join(socket);
+            socket.roomId = body.id;
+            if (joined) {
+              rooms.reviveRoom(body);
+            }
+          }
+          break;
+        case "keyPress":
+          // someone pushed a button
+          rooms.rooms[socket.roomId].keyPress(socket, body.key);
+      }
+    });
+    return response;
+  } else {
+    const pathname = new URL(req.url).pathname;
+
+    if (pathname.startsWith("/gui")) {
+      return serveDir(req, {
+        fsRoot: "gui",
+        urlRoot: "gui",
+      });
+    } else {
+      return serveFile(req, "gui/index.html");
+    }
+  }
 });
