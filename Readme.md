@@ -15,7 +15,7 @@ This is a rewrite of
 
 ## building as a binary
 
-```
+```bash
 DOCKER_BUILDKIT=1 docker build --target binaries --output bin -f builder.dockerfile .
 ```
 
@@ -27,7 +27,7 @@ files in ./gui to work
 note: rooms.json is used to persist chat history/room state. rooms are deleted
 entirely from memory and disk after 12 hours with no sockets connected
 
-```
+```bash
 docker build -t type2:latest .
 touch rooms.json   # prevent Docker from creating a directory if not present
 docker compose up -d
@@ -37,7 +37,7 @@ docker compose up -d
 
 install deno like this:
 
-```
+```bash
 curl -fsSL https://deno.land/x/install/install.sh | sh -s v1.9.2
 ```
 
@@ -55,7 +55,7 @@ but it gives you live-dev with the ts type checking off for the backend code.
 
 Here is an example SSL reverse proxy configuration:
 
-```
+```apache
 <VirtualHost *:443>
     ServerName typeto.me
 
@@ -73,4 +73,5 @@ Here is an example SSL reverse proxy configuration:
 # credits
 
 [Jordan Byrd](https://jordanbyrd.com/) (main contributor)
+
 [Daniel Drucker](https://3e.org/dmd/)
