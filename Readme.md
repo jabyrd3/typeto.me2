@@ -59,11 +59,15 @@ Here is an example SSL reverse proxy configuration:
 ```
 <VirtualHost *:443>
     ServerName typeto.me
-    ProxyPass / http://127.0.0.1:8090/ Keepalive=On
-    ProxyPassReverse / http://127.0.0.1:8090/
+
+    ProxyPass "/ws" "ws://127.0.0.1:8090/ws"
+    ProxyPassReverse "/ws" "ws://127.0.0.1:8090/ws"
+    ProxyPass "/"  "http://127.0.0.1:8090/"
+    ProxyPassReverse  "/" "http://127.0.0.1:8090/"
+
+    Include /etc/letsencrypt/options-ssl-apache.conf
     SSLCertificateFile /etc/letsencrypt/live/typeto.me/fullchain.pem
     SSLCertificateKeyFile /etc/letsencrypt/live/typeto.me/privkey.pem
-    Include /etc/letsencrypt/options-ssl-apache.conf
 </VirtualHost>
 ```
 
