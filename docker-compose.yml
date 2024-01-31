@@ -2,7 +2,8 @@ version: '3.8'
 
 services:
   typetome:
-    image: type2:latest
+    build:
+      context: .
     container_name: typetome
     init: true
     restart: unless-stopped
