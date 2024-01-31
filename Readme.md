@@ -73,5 +73,5 @@ Here is an example SSL reverse proxy configuration:
 
 # credits
 
-[Jordan Byrd](https://jordanbyrd.com/) did all the work;
-[Daniel](https://3e.org/dmd/) nagged him to do it.
+[Jordan Byrd](https://jordanbyrd.com/) (main contributor)
+[Daniel Drucker](https://3e.org/dmd/)
