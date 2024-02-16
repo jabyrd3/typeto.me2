@@ -26,6 +26,13 @@ class App {
         console.log("interval caught dead socket");
       }
     }, 5000);
+
+  }
+  setupInput = () => {
+    const inputElement = document.getElementById("focused-input");
+    document.getElementById('main').addEventListener('touchend', function() {
+        inputElement.focus();
+    });
   }
   setup = () => {
     if (!this.connected) {
@@ -63,6 +70,7 @@ class App {
         renderMine(this.socketId, this.room);
       });
     }
+    this.setupInput();
   };
   keydownHandler = (evt) => {
     const {
