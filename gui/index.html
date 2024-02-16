@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="description" content="old-unix-style character at a time talk using websockets">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>typeto.me</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=VT323');
@@ -396,6 +396,12 @@
     .crt {
       animation: textShadow 1.6s infinite;
     }
+
+    #focused-input {
+      position: absolute;
+      opacity: 0;
+      z-index: -1;
+    }
   </style>
 
 </head>
@@ -413,6 +419,7 @@
       <div id="mine"></div>
     </div>
   </div>
+  <input type="text" id="focused-input" autofocus>
 </body>
 
 </html>
