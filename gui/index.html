@@ -396,6 +396,12 @@
     .crt {
       animation: textShadow 1.6s infinite;
     }
+
+    #focused-input {
+      position: absolute;
+      opacity: 0;
+      z-index: -1;
+    }
   </style>
 
 </head>
@@ -413,6 +419,7 @@
       <div id="mine"></div>
     </div>
   </div>
+  <input type="text" id="focused-input" autofocus>
 </body>
 
 </html>
