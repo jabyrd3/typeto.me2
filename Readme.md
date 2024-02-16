@@ -43,7 +43,7 @@ curl -fsSL https://deno.land/x/install/install.sh | sh -s v1.9.2
 then
 
 ```
-deno run --allow-read --allow-write --watch -A --no-check server/index.mjs
+deno run --allow-read --allow-write --watch -A --no-check server/index.ts
 ```
 
 if you change the gui code you need to refresh the browser tab
