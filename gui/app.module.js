@@ -218,17 +218,9 @@ function renderMine(socketID, room) {
     myMessagesDom = cre("ul", cre("li.cursor"));
   }
   document.querySelector("#mine ul")?.remove();
-  document.querySelector("#mine").appendChild(
-    iterateAndLinkNodeList(myMessagesDom),
-  );
+  document.querySelector("#mine").appendChild(myMessagesDom);
 }
-function iterateAndLinkNodeList(nl) {
-  for (let i = 0; i < nl.childNodes.length; i++) {
-    const node = nl.childNodes[i];
-    node.innerHTML = linkify(node.innerText);
-  }
-  return nl;
-}
+
 function renderTheirs(socketId, room) {
   const theirMessages = room.theirId
     ? room.messages[room.theirId]
@@ -239,11 +231,11 @@ function renderTheirs(socketId, room) {
   if (theirMessages) {
     const theirMessagesDom = cre(
       "ul",
-      theirMessages.map((message) => cre("li", linkify(message))),
+      theirMessages.map((message) => cre("li", message)),
     );
     document.querySelector("#theirs ul")?.remove();
     document.querySelector("#theirs").appendChild(
-      iterateAndLinkNodeList(theirMessagesDom),
+      theirMessagesDom,
     );
   }
 }
