@@ -261,17 +261,17 @@ function padString(string, clip) {
 
 function renderHeaders(room) {
   const topMessage = room.participants > 1
-    ? `talkto.me 2 | issues: https://github.com/jabyrd3/typeto.me2/issues`
+    ? `typeto.me 2 | issues: https://github.com/jabyrd3/typeto.me2/issues`
     : window.app.clipped
-      ? `talkto.me 2 | chat link copied to your clipboard, give it to someone to start a chat`
-      : `talkto.me 2 | give someone this url to chat: ${window.location.href}`;
+      ? `typeto.me 2 | chat link copied to your clipboard, give it to someone to start a chat`
+      : `typeto.me 2 | give someone this url to chat: ${window.location.href}`;
   const bottomMessage = room.participants > 1
     ? `YOU${window.location.pathname}`
     : "Waiting for your party to respond...";
   const paddedTopMessage = padString(topMessage, room.participants < 2)
     .replace(
-      "talkto.me 2",
-      `<a target="_blank" href="https://github.com/jabyrd3/typeto.me2">talkto.me 2${ghIconModule}</a>`,
+      "typeto.me 2",
+      `<a target="_blank" href="https://github.com/jabyrd3/typeto.me2">typeto.me 2${ghIconModule}</a>`,
     );
   const paddedBottomMessage = padString(bottomMessage);
   document.querySelector("#theirs-header").innerHTML = `<span ${room.participants < 2 ? 'class="pulsate"' : ""
