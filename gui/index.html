@@ -88,6 +88,24 @@
       line-height: 20px; /* Vertically center text */
     }
 
+    .divider-line {
+      height: 20px; /* Height of the divider line */
+      line-height: 20px; /* Vertically center text */
+      text-align: center;
+      white-space: nowrap;
+      flex-shrink: 0; /* Prevent divider from shrinking */
+      color: #FFB000; /* Match theme color */
+      /* background-color: black; */ /* Optional: if needed over other elements */
+    }
+
+    /* Style for the label text within the divider line */
+    .divider-label {
+        /* background-color: black; */ /* Removed background to make it transparent */
+        padding: 0 4px; /* Small horizontal padding around the text */
+        color: #FFB000; /* Match theme color (same as dashes) */
+        /* font-size: 16px; */ /* Optional: Adjust size if needed */
+    }
+
     #chat-container {
       position: absolute;
       top: 20px; /* Start below the fixed header */
@@ -104,24 +122,14 @@
       flex-basis: 0; /* Distribute space evenly */
       overflow: hidden; /* Hide overflow within each section */
       position: relative; /* Needed for absolute positioning of ul */
-      border-bottom: 1px dashed #FFB000; /* Separator line */
+      /* border-bottom: 1px dashed #FFB000; */ /* Removed CSS border */
       padding: 0 8px; /* Match old padding */
       display: flex; /* Use flexbox for inner layout */
-      flex-direction: column; /* Stack header and messages vertically */
+      flex-direction: column; /* Stack messages vertically */
     }
 
-    .participant-section:last-child {
-      border-bottom: none; /* No border for the last section */
-    }
-
-    .participant-header {
-      height: 20px; /* Fixed height for participant header */
-      line-height: 20px;
-      text-align: center;
-      white-space: nowrap;
-      flex-shrink: 0; /* Prevent header from shrinking */
-      color: #ccc; /* Slightly dimmer color for participant headers */
-    }
+    /* Removed .participant-section:last-child rule */
+    /* Removed .participant-label rule */
 
     .participant-messages {
       flex-grow: 1; /* Allow message area to fill remaining space */
@@ -136,6 +144,7 @@
       left: 8px; /* Adjust based on parent padding */
       right: 8px; /* Adjust based on parent padding */
       /* Remove width: calc(100vw - 16px); */
+      padding-inline-start: 0; /* Reset padding from body */
     }
 
 

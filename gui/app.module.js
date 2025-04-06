@@ -292,18 +292,19 @@ function renderParticipantSection(container, participantId, messages, isSelf, pa
 
   // Create section if it doesn't exist
   if (!section) {
-    const shortId = getShortId(participantId);
-    const headerText = isSelf ? `YOU (${shortId})` : `PARTICIPANT (${shortId})`;
     section = cre(`div.participant-section#${sectionId}`, [
-        cre('div.participant-header', headerText),
         cre('div.participant-messages') // Container for the ul
     ]);
+    // Removed participant label creation
+
     container.appendChild(section);
   }
 
-  // Set height dynamically - adjust calculation if needed (e.g., subtract header height)
-  const availableHeight = `calc(${100 / participantCount}vh - ${20 / participantCount}px)`; // Subtract proportional header height
-  section.style.height = availableHeight;
+  // Set height dynamically - total chat height minus header and dividers, divided by participant count
+  const totalDividerHeight = (participantCount > 1 ? (participantCount - 1) : 0) * 20; // Each divider is 20px high
+  const availableHeightForSections = `calc(100vh - 20px - ${totalDividerHeight}px)`; // Subtract main header (20px) and all dividers
+  const sectionHeight = `calc(${availableHeightForSections} / ${participantCount})`;
+  section.style.height = sectionHeight;
 
 
   // Render messages within the section
@@ -371,6 +372,32 @@ function renderMainHeader(room) {
   }
 }
 
+// Helper function to generate a padded string of dashes, optionally centering a participant ID
+function renderDividerLine(participantId = null) {
+    const widthInChars = Math.floor(window.innerWidth / 8); // Approx width based on char width
+    let lineContent;
+
+    if (participantId) {
+        const shortId = getShortId(participantId);
+        const label = ` ^^ ${shortId} ^^ `; // Add ^^ markers around the short ID
+        const labelLength = label.length;
+        const remainingWidth = widthInChars - labelLength;
+        const sideDashesCount = Math.max(0, Math.floor(remainingWidth / 2));
+        const dashes = Array.from({ length: sideDashesCount }).map(() => "-").join("");
+        // Wrap the label in a span for specific styling (e.g., background)
+        lineContent = `${dashes}<span class="divider-label">${label}</span>${dashes}`;
+        // Ensure the line roughly fills the width if label is long
+        if (dashes.length * 2 + labelLength < widthInChars - 2) {
+             lineContent += "-"; // Add extra dash if needed
+        }
+    } else {
+        // Just dashes if no ID provided
+        lineContent = Array.from({ length: widthInChars }).map(() => "-").join("");
+    }
+    return lineContent;
+}
+
+
 // Main render function: Clears container and renders all participant sections
 function fullRender(socketID, room) {
   renderMainHeader(room); // Render the single top header
@@ -387,15 +414,31 @@ function fullRender(socketID, room) {
       return;
   }
 
+  let renderedCount = 0; // Keep track of rendered sections to place dividers correctly
+
+  // Function to render a section and potentially a divider
+  const renderSectionAndDivider = (id, isSelf) => {
+      renderParticipantSection(container, id, room.messages[id], isSelf, participantCount);
+      renderedCount++;
+      // Add divider after this section if it's not the very last section overall
+      if (renderedCount < participantCount) {
+          // Pass the ID only if the section just rendered was NOT the self section
+          const dividerContent = renderDividerLine(isSelf ? null : id);
+          const divider = cre('div.divider-line');
+          divider.innerHTML = dividerContent; // Use innerHTML because the content now includes HTML span
+          container.appendChild(divider);
+      }
+  };
+
   // Render other participants first
   participantIds.forEach(id => {
     if (id !== socketID) {
-      renderParticipantSection(container, id, room.messages[id], false, participantCount);
+      renderSectionAndDivider(id, false);
     }
   });
 
   // Render own section last
   if (room.messages[socketID]) {
-      renderParticipantSection(container, socketID, room.messages[socketID], true, participantCount);
+      renderSectionAndDivider(socketID, true);
   }
 }
