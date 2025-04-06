@@ -334,23 +334,23 @@ function renderMainHeader(room) {
   // Calculate count based on actual participants with messages, including self
   const participantIds = Object.keys(room?.messages || {});
   const participantCount = participantIds.length;
-  const topMessageBase = `typeto.me 2 | issues: https://github.com/jabyrd3/typeto.me2/issues`;
+  const topMessageBase = `typeto.me | issues: https://github.com/jabyrd3/typeto.me2/issues`;
   let headerMessage;
 
   if (!room || participantCount === 0) { // Check if room exists and count > 0
       headerMessage = "Connecting or Room Invalid...";
   } else if (participantCount === 1) { // Only self in the room
     headerMessage = window.app.clipped
-      ? `typeto.me 2 | chat link copied! Send it to friends.`
-      : `typeto.me 2 | Send this URL to friends: ${window.location.href}`;
+      ? `typeto.me | chat link copied! Send it to friends.`
+      : `typeto.me | Send this URL to friends: ${window.location.href}`;
   } else {
     headerMessage = `${topMessageBase} | ${participantCount} participants in room ${room.id}`;
   }
 
   const paddedHeaderMessage = padString(headerMessage, participantCount <= 1)
     .replace(
-      "typeto.me 2",
-      `<a target="_blank" href="https://github.com/jabyrd3/typeto.me2">typeto.me 2${ghIconModule}</a>`,
+      "typeto.me",
+      `<a target="_blank" href="https://github.com/jabyrd3/typeto.me2">typeto.me${ghIconModule}</a>`,
     );
 
   const headerElement = document.querySelector("#main-header");
