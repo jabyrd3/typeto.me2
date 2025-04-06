@@ -207,10 +207,36 @@ class App {
 }
 const app = await new App();
 window.app = app;
-window.addEventListener("resize", () => renderHeaders(window.app.room));
+// Update resize handler to call fullRender to recalculate heights and main header
+window.addEventListener("resize", () => {
+    if (window.app && window.app.room) {
+        fullRender(window.app.socketId, window.app.room);
+    }
+});
 function renderError(message) {
-  document.querySelector("#main *").remove();
-  document.querySelector("#main").appendChild(
+  // Ensure error message replaces the chat container content
+  const mainDiv = document.querySelector("#main");
+  const chatContainer = document.querySelector("#chat-container");
+  const mainHeader = document.querySelector("#main-header"); // Keep header
+  if (mainDiv) {
+      // Clear existing content except header
+      if(chatContainer) chatContainer.innerHTML = '';
+      // Add error message within the main area (or specifically chat-container)
+      const errorDiv = cre("div.error", { style: "padding: 20px; text-align: center;" }, message);
+      if (chatContainer) {
+          chatContainer.appendChild(errorDiv);
+      } else {
+          // Fallback if container doesn't exist for some reason
+          mainDiv.appendChild(errorDiv);
+      }
+  }
+   // Optionally clear or update the main header during error
+   if (mainHeader) mainHeader.innerHTML = padString("Error");
+
+}
+// Helper to get the short ID // NOTE: This function definition is kept as it exists below this point
+function getShortId(id) { // Keep the function signature line for context, but the body is replaced above
+  document.querySelector("#main").appendChild( // This line is part of the original function body being replaced
     cre("div.error", message),
   );
 }
