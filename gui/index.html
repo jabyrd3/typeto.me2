@@ -433,14 +433,13 @@
   </style>
 
 </head>
-
 <body>
 
   <script type="module" src="gui/app.module.js"></script>
-  <div id="main" class="scanlines crt">
-    <div id="main-header"></div>
+  <div id="main" class="scanlines"> {/* Remove crt from here */}
+    <div id="main-header" class="crt"></div> {/* Add crt here */}
     <div id="chat-container">
-      <!-- Participant sections will be added here dynamically -->
+      {/* Participant sections will be added here dynamically */}
     </div>
   </div>
 </body>

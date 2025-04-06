@@ -331,13 +331,15 @@ function padString(string, clip) {
 
 // Renders the main header at the top
 function renderMainHeader(room) {
-  const participantCount = room?.participants || 0; // Handle potential undefined room
+  // Calculate count based on actual participants with messages, including self
+  const participantIds = Object.keys(room?.messages || {});
+  const participantCount = participantIds.length;
   const topMessageBase = `typeto.me 2 | issues: https://github.com/jabyrd3/typeto.me2/issues`;
   let headerMessage;
 
-  if (!room || participantCount <= 0) {
+  if (!room || participantCount === 0) { // Check if room exists and count > 0
       headerMessage = "Connecting or Room Invalid...";
-  } else if (participantCount === 1) {
+  } else if (participantCount === 1) { // Only self in the room
     headerMessage = window.app.clipped
       ? `typeto.me 2 | chat link copied! Send it to friends.`
       : `typeto.me 2 | Send this URL to friends: ${window.location.href}`;
