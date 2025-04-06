@@ -135,7 +135,8 @@ class App {
     }
     switch (body.type) {
       case "room-is-crowded":
-        renderError();
+        // Use the message from the server if available, otherwise use a default
+        renderError(body.message || "Sorry, this room is full.");
         break;
       case "roomCreated":
         window.history.pushState(
@@ -170,7 +171,9 @@ class App {
         } else {
           pressTarget.splice(-1, 1, pressTarget.slice(-1)[0] + body.key);
         }
-        renderTheirLast(pressTarget.slice(-1));
+        // Re-render all "their" messages for simplicity when receiving a keypress
+        // This avoids complex logic for tracking multiple cursors/last lines
+        renderTheirs(this.socketId, this.room);
         break;
     }
   };
@@ -189,20 +192,23 @@ class App {
 const app = await new App();
 window.app = app;
 window.addEventListener("resize", () => renderHeaders(window.app.room));
-function renderError() {
+function renderError(message) {
   document.querySelector("#main *").remove();
   document.querySelector("#main").appendChild(
-    cre(
-      "div.error",
-      "Sorry, there are already 2 people in this room. press back or change the url pathname to start a new chat",
-    ),
+    cre("div.error", message),
   );
 }
 function renderMyLast(message) {
   document.querySelector("#mine ul li:last-of-type").innerText = message;
 }
 function renderTheirLast(message) {
-  document.querySelector("#theirs ul li:last-of-type").innerText = message;
+  // This function might become less useful or accurate with multiple participants typing simultaneously.
+  // For now, we'll let renderTheirs handle updates on keypress.
+  // console.log("renderTheirLast called with:", message);
+  // const theirsEl = document.querySelector("#theirs ul li:last-of-type");
+  // if (theirsEl) {
+  //   theirsEl.innerText = message;
+  // }
 }
 function renderMine(socketID, room) {
   const myMessages = room.messages[socketID];
@@ -222,16 +228,33 @@ function renderMine(socketID, room) {
 }
 
 function renderTheirs(socketId, room) {
-  const theirMessages = room.theirId
-    ? room.messages[room.theirId]
-    : Object.keys(room.messages).filter((id) => socketId !== id).reduce(
-      (acc, id) => (acc.concat(room.messages[id])),
-      [],
-    );
-  if (theirMessages) {
+  // Aggregate messages from all *other* participants
+  const allOtherMessages = [];
+  const otherParticipantIds = room.otherParticipantIds ||
+    Object.keys(room.messages).filter(id => id !== socketId); // Fallback if server didn't send it
+
+  otherParticipantIds.forEach(id => {
+    if (room.messages[id]) {
+      // Prefix messages with a shortened ID for clarity
+      const shortId = id.substring(0, 4); // Example: Use first 4 chars of ID
+      room.messages[id].forEach(msg => {
+        // Add only non-empty messages, prefixed
+        if (msg.trim() !== "") {
+           // Add a structure or marker to distinguish sender later if needed
+           allOtherMessages.push({ sender: shortId, text: msg });
+        }
+      });
+    }
+  });
+
+  // Sort messages chronologically? For now, just concatenate based on participant ID order.
+  // A more robust solution would involve timestamps if message order is critical.
+
+  if (allOtherMessages.length > 0) {
     const theirMessagesDom = cre(
       "ul",
-      theirMessages.map((message) => cre("li", message)),
+      // Render messages with sender prefix
+      allOtherMessages.map(msgData => cre("li", `[${msgData.sender}]: ${msgData.text}`)),
     );
     document.querySelector("#theirs ul")?.remove();
     document.querySelector("#theirs").appendChild(
@@ -260,24 +283,36 @@ function padString(string, clip) {
 }
 
 function renderHeaders(room) {
-  const topMessage = room.participants > 1
-    ? `typeto.me 2 | issues: https://github.com/jabyrd3/typeto.me2/issues`
-    : window.app.clipped
-      ? `typeto.me 2 | chat link copied to your clipboard, give it to someone to start a chat`
-      : `typeto.me 2 | give someone this url to chat: ${window.location.href}`;
-  const bottomMessage = room.participants > 1
-    ? `YOU${window.location.pathname}`
-    : "Waiting for your party to respond...";
-  const paddedTopMessage = padString(topMessage, room.participants < 2)
+  const participantCount = room.participants || 0;
+  const topMessageBase = `typeto.me 2 | issues: https://github.com/jabyrd3/typeto.me2/issues`;
+  let topMessage;
+
+  if (participantCount <= 1) {
+    topMessage = window.app.clipped
+      ? `typeto.me 2 | chat link copied! Send it to friends.`
+      : `typeto.me 2 | Send this URL to friends: ${window.location.href}`;
+  } else {
+    topMessage = `${topMessageBase} | ${participantCount} participants`;
+  }
+
+  const bottomMessage = participantCount > 1
+    ? `YOU (${app.socketId?.substring(0, 4)})${window.location.pathname}` // Show your short ID
+    : "Waiting for others to join...";
+
+  const paddedTopMessage = padString(topMessage, participantCount <= 1)
     .replace(
       "typeto.me 2",
       `<a target="_blank" href="https://github.com/jabyrd3/typeto.me2">typeto.me 2${ghIconModule}</a>`,
     );
   const paddedBottomMessage = padString(bottomMessage);
-  document.querySelector("#theirs-header").innerHTML = `<span ${room.participants < 2 ? 'class="pulsate"' : ""
+
+  // Pulsate effect only when waiting for the *first* other person
+  document.querySelector("#theirs-header").innerHTML = `<span ${participantCount <= 1 ? 'class="pulsate"' : ""
     }>${paddedTopMessage}</span>`;
   document.querySelector("#mine-header").innerHTML =
     `<span>${paddedBottomMessage}</span>`;
+
+  // Re-attach copy listeners as innerHTML overwrites them
   const copyableLinks = document.querySelectorAll(".copyable");
   for (let i = 0; i < copyableLinks.length; i++) {
     const link = copyableLinks[i];

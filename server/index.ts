@@ -45,8 +45,9 @@ class Room {
     console.log(
       `socket id ${socket.id} joining room ${this.id}, there are already ${this.sockets.length} sockets connected`,
     );
-    if (this.sockets.length > 1) {
-      return socket.json({ type: "room-is-crowded" });
+    // Allow up to 4 participants (adjust number as needed)
+    if (this.sockets.length >= 4) {
+      return socket.json({ type: "room-is-crowded", message: "Room is full (max 4 participants)." });
     }
     this.sockets.push(socket);
     if (this.sockets.length == 2) {
@@ -93,19 +94,28 @@ class Room {
       this.sockets.map((sock) => sock.json(msg(sock)));
       return;
     }
-    const target = this.sockets.find((sock) => sock?.id !== socket?.id);
-    if (target) {
-      target.json(msg);
-    }
+    // Send message to all *other* sockets in the room
+    this.sockets.forEach((sock) => {
+      if (sock?.id !== socket?.id) {
+        // If msg is a function, call it for each sock, otherwise send the object
+        sock.json(typeof msg === 'function' ? msg(sock) : msg);
+      }
+    });
   };
   render(socketId) {
-    const them = this.sockets.find((sock) => sock.id !== socketId);
+    // Get IDs of all other participants
+    const otherIds = this.sockets
+      .filter((sock) => sock.id !== socketId)
+      .map(sock => sock.id);
     return {
       messages: this.messages,
       participants: this.sockets.length,
       id: this.id,
       yourId: socketId,
-      theirId: them ? them.id : undefined,
+      // Keep 'theirId' for potential backward compatibility or simple cases,
+      // but also include all other IDs. Client might need adjustment.
+      theirId: otherIds.length > 0 ? otherIds[0] : undefined, // Example: first other participant
+      otherParticipantIds: otherIds, // List of all other participant IDs
     };
   }
   keyPress(socket, key) {
@@ -120,11 +130,15 @@ class Room {
     }
     const ourMessages = this.messages[socket.id];
     if (!this.nonEvents.includes(key)) {
+      // Add the character locally first
       ourMessages.splice(-1, 1, ourMessages.slice(-1)[0] + key);
+      // Broadcast the key press to others
       this.message(socket, { type: "keyPress", key, source: socket.id });
     }
     if (key === "Backspace") {
+      // Apply backspace locally first
       ourMessages.splice(-1, 1, ourMessages.slice(-1)[0].slice(0, -1));
+      // Broadcast the backspace to others
       this.message(socket, { type: "keyPress", key, source: socket.id });
     }
   }
