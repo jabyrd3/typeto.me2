@@ -70,7 +70,7 @@ class Room {
     }
     if (!this.messages[socket.id]?.slice(-2)[0]?.includes("has joined")) {
       this.messages[socket.id].push(
-        `> socket id ${socket.id} has joined at ${new Date().toISOString().replace('T', ' ').split('.')[0] + "Z"
+        `> ${socket.id.substring(0, 4)} has joined at ${new Date().toISOString().replace('T', ' ').split('.')[0] + "Z"
         }`,
       );
       this.messages[socket.id].push("");
@@ -84,7 +84,7 @@ class Room {
   leave(id) {
     this.sockets = this.sockets.filter((socket) => socket.id !== id);
     this.messages[id].push(
-      `> socket id ${id} has left at ${new Date().toISOString().replace('T', ' ').split('.')[0] + "Z"
+      `> ${id.substring(0, 4)} has left at ${new Date().toISOString().replace('T', ' ').split('.')[0] + "Z"
       }`,
     );
     this.messages[id].push("");
