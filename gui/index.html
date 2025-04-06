@@ -166,28 +166,23 @@
       position: relative;
     }
 
-    /* Hide the default cursor block */
-    .cursor::after {
-      display: none;
+    /* Remove ALL original cursor styles */
+    li.cursor::after, 
+    li::after {
+      display: none !important;
+      content: none !important;
+      background: none !important;
+      border: none !important;
     }
     
+    /* New simplified cursor */
     .text-cursor {
       display: inline-block;
-      color: #FFB000;
-      background-color: #FFB000;
-      width: 2px;
-      height: 20px;
-      -webkit-animation: blink 1s step-end infinite;
-      animation: blink 1s step-end infinite;
-    }
-    
-    .remote-cursor {
-      display: inline-block;
-      color: #00B0FF;
-      background-color: #00B0FF;
-      width: 2px;
-      height: 20px;
-      -webkit-animation: blink 1s step-end infinite;
+      width: 0;
+      border-right: 2px solid #FFB000;
+      height: 16px;
+      vertical-align: middle;
+      margin-right: 0;
       animation: blink 1s step-end infinite;
     }
 

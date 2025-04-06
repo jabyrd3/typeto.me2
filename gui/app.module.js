@@ -479,23 +479,31 @@ function renderParticipantMessages(participantId, messages, isSelf) {
     messagesDom = cre(
       "ul",
       messages.map((message, idx) => {
-        // For the last message of the current user, add cursor with position
+        // For the last message of the current user
         if (isSelf && idx === messages.length - 1) {
-          // Create element but don't set content yet
-          const li = cre(`li.cursor`, "");
-          
-          // On the next tick, update with cursor position
-          setTimeout(() => {
-            if (app.cursorPos !== undefined) {
-              const beforeCursor = message.slice(0, app.cursorPos);
-              const afterCursor = message.slice(app.cursorPos);
-              li.innerHTML = `${beforeCursor}<span class="text-cursor">|</span>${afterCursor}`;
-            } else {
-              li.innerText = message;
-            }
-          }, 0);
-          
-          return li;
+          if (message === "") {
+            // For empty messages, render with cursor at position 0
+            const li = cre("li", "");
+            // Immediately set content with cursor to prevent flash
+            li.innerHTML = `<span class="text-cursor"></span>`;
+            return li;
+          } else {
+            // Create element with normal content
+            const li = cre("li", "");
+            
+            // On the next tick, update with cursor position
+            setTimeout(() => {
+              if (app.cursorPos !== undefined) {
+                const beforeCursor = message.slice(0, app.cursorPos);
+                const afterCursor = message.slice(app.cursorPos);
+                li.innerHTML = `${beforeCursor}<span class="text-cursor"></span>${afterCursor}`;
+              } else {
+                li.innerText = message;
+              }
+            }, 0);
+            
+            return li;
+          }
         } else {
           // Regular message for other users or previous messages
           return cre("li", message);
@@ -503,8 +511,8 @@ function renderParticipantMessages(participantId, messages, isSelf) {
       })
     );
   } else {
-    // Ensure even an empty section has a ul and a cursor if it's the self user
-    messagesDom = cre("ul", cre(`li${isSelf ? ".cursor" : ""}`));
+    // Ensure even an empty section has a ul with an empty list item
+    messagesDom = cre("ul", cre("li", ""));
   }
 
   messagesContainer.querySelector("ul")?.remove(); // Clear previous messages
@@ -527,10 +535,16 @@ function renderMyLastWithCursor(message, cursorPos) {
   if (!mySection) return;
   const lastLi = mySection.querySelector("ul li:last-of-type");
   if (lastLi) {
-    // Split message at cursor position and insert cursor character
+    // For empty messages, just show a cursor
+    if (message === "") {
+      lastLi.innerHTML = `<span class="text-cursor"></span>`;
+      return;
+    }
+    
+    // Split message at cursor position and insert cursor at the split point
     const beforeCursor = message.slice(0, cursorPos);
     const afterCursor = message.slice(cursorPos);
-    lastLi.innerHTML = `${beforeCursor}<span class="text-cursor">|</span>${afterCursor}`;
+    lastLi.innerHTML = `${beforeCursor}<span class="text-cursor"></span>${afterCursor}`;
   }
 }
 
@@ -550,12 +564,16 @@ function renderParticipantLastWithCursor(participantId, message, cursorPos) {
     if (!section) return;
     const lastLi = section.querySelector("ul li:last-of-type");
     if (lastLi) {
-        // Split message at cursor position and insert cursor character
+        // For remote users, don't show cursor - just render the message
+        if (participantId !== app.socketId) {
+            lastLi.innerText = message;
+            return;
+        }
+        
+        // For current user, show cursor
         const beforeCursor = message.slice(0, cursorPos);
         const afterCursor = message.slice(cursorPos);
-        // Use a different style for remote cursors vs. self cursor
-        const cursorClass = participantId === app.socketId ? "text-cursor" : "remote-cursor";
-        lastLi.innerHTML = `${beforeCursor}<span class="${cursorClass}">|</span>${afterCursor}`;
+        lastLi.innerHTML = `${beforeCursor}<span class="text-cursor"></span>${afterCursor}`;
     }
 }
 
