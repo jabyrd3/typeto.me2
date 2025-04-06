@@ -55,12 +55,15 @@ class App {
             key: char,
           })
         );
-        this.room.messages[this.socketId].splice(
+        // Update internal state
+        const currentMessages = this.room.messages[this.socketId];
+        currentMessages.splice(
           -1,
           1,
-          this.room.messages[this.socketId].slice(-1)[0] + pastedText,
+          currentMessages.slice(-1)[0] + pastedText,
         );
-        renderMine(this.socketId, this.room);
+        // Re-render just this user's section after paste
+        renderParticipantMessages(this.socketId, currentMessages, true);
       });
     }
   };
@@ -97,11 +100,15 @@ class App {
             this.room.messages[this.socketId].slice(-1)[0] + key,
           );
         }
-      } else {
+      } else { // Enter key pressed
         msgs.push("");
-        renderMine(this.socketId, this.room);
+        // Re-render the whole section for the user on Enter to show the new empty line
+        renderParticipantMessages(this.socketId, msgs, true);
       }
-      renderMyLast(msgs.slice(-1));
+      // Always update the last line visually as typing happens (except Enter)
+      if (key !== "Enter") {
+          renderMyLast(msgs.slice(-1)[0]); // Pass the actual string content
+      }
     }
   };
   teardown = () => {
@@ -159,21 +166,30 @@ class App {
         fullRender(this.socketId, this.room);
         break;
       case "committed":
-        const commitTarget = this.room.messages[body.source];
-        commitTarget.splice(-1, 1, body.final);
-        commitTarget.push("");
-        renderTheirs(this.socketId, this.room);
+        const commitSourceId = body.source;
+        const commitTarget = this.room.messages[commitSourceId];
+        if (commitTarget) {
+            commitTarget.splice(-1, 1, body.final);
+            commitTarget.push("");
+            // Re-render the specific participant's section after commit
+            renderParticipantMessages(commitSourceId, commitTarget, commitSourceId === this.socketId);
+        }
         break;
       case "keyPress":
-        const pressTarget = this.room.messages[body.source];
-        if (body.key === "Backspace") {
-          pressTarget.splice(-1, 1, pressTarget.slice(-1)[0].slice(0, -1));
-        } else {
-          pressTarget.splice(-1, 1, pressTarget.slice(-1)[0] + body.key);
+        const pressSourceId = body.source;
+        const pressTarget = this.room.messages[pressSourceId];
+        if (pressTarget) {
+            let currentLastLine = pressTarget.slice(-1)[0];
+            if (body.key === "Backspace") {
+                pressTarget.splice(-1, 1, currentLastLine.slice(0, -1));
+            } else if (body.key === "Space") { // Handle space explicitly if needed
+                 pressTarget.splice(-1, 1, currentLastLine + " ");
+            } else if (!nonEvents.includes(body.key) && body.key.length === 1) { // Basic check for printable chars
+                pressTarget.splice(-1, 1, currentLastLine + body.key);
+            }
+            // Render only the last line update for the specific participant
+            renderParticipantLast(pressSourceId, pressTarget.slice(-1)[0]);
         }
-        // Re-render all "their" messages for simplicity when receiving a keypress
-        // This avoids complex logic for tracking multiple cursors/last lines
-        renderTheirs(this.socketId, this.room);
         break;
     }
   };
@@ -198,69 +214,80 @@ function renderError(message) {
     cre("div.error", message),
   );
 }
-function renderMyLast(message) {
-  document.querySelector("#mine ul li:last-of-type").innerText = message;
+// Helper to get the short ID
+function getShortId(id) {
+  return id?.substring(0, 4) || "??";
 }
-function renderTheirLast(message) {
-  // This function might become less useful or accurate with multiple participants typing simultaneously.
-  // For now, we'll let renderTheirs handle updates on keypress.
-  // console.log("renderTheirLast called with:", message);
-  // const theirsEl = document.querySelector("#theirs ul li:last-of-type");
-  // if (theirsEl) {
-  //   theirsEl.innerText = message;
-  // }
-}
-function renderMine(socketID, room) {
-  const myMessages = room.messages[socketID];
-  let myMessagesDom;
-  if (myMessages) {
-    myMessagesDom = cre(
+
+// Renders the messages for a single participant within their dedicated section
+function renderParticipantMessages(participantId, messages, isSelf) {
+  const section = document.getElementById(`participant-${participantId}`);
+  if (!section) return; // Section might not exist yet
+
+  const messagesContainer = section.querySelector(".participant-messages");
+  if (!messagesContainer) return;
+
+  let messagesDom;
+  if (messages && messages.length > 0) {
+    messagesDom = cre(
       "ul",
-      myMessages.map((message, idx) =>
-        cre(`li${idx === myMessages.length - 1 ? ".cursor" : ""}`, message)
+      messages.map((message, idx) =>
+        // Add cursor only to the last message of the current user (isSelf)
+        cre(`li${isSelf && idx === messages.length - 1 ? ".cursor" : ""}`, message)
       ),
     );
   } else {
-    myMessagesDom = cre("ul", cre("li.cursor"));
+    // Ensure even an empty section has a ul and a cursor if it's the self user
+    messagesDom = cre("ul", cre(`li${isSelf ? ".cursor" : ""}`));
   }
-  document.querySelector("#mine ul")?.remove();
-  document.querySelector("#mine").appendChild(myMessagesDom);
+
+  messagesContainer.querySelector("ul")?.remove(); // Clear previous messages
+  messagesContainer.appendChild(messagesDom);
 }
 
-function renderTheirs(socketId, room) {
-  // Aggregate messages from all *other* participants
-  const allOtherMessages = [];
-  const otherParticipantIds = room.otherParticipantIds ||
-    Object.keys(room.messages).filter(id => id !== socketId); // Fallback if server didn't send it
-
-  otherParticipantIds.forEach(id => {
-    if (room.messages[id]) {
-      // Prefix messages with a shortened ID for clarity
-      const shortId = id.substring(0, 4); // Example: Use first 4 chars of ID
-      room.messages[id].forEach(msg => {
-        // Add only non-empty messages, prefixed
-        if (msg.trim() !== "") {
-           // Add a structure or marker to distinguish sender later if needed
-           allOtherMessages.push({ sender: shortId, text: msg });
-        }
-      });
-    }
-  });
-
-  // Sort messages chronologically? For now, just concatenate based on participant ID order.
-  // A more robust solution would involve timestamps if message order is critical.
-
-  if (allOtherMessages.length > 0) {
-    const theirMessagesDom = cre(
-      "ul",
-      // Render messages with sender prefix
-      allOtherMessages.map(msgData => cre("li", `[${msgData.sender}]: ${msgData.text}`)),
-    );
-    document.querySelector("#theirs ul")?.remove();
-    document.querySelector("#theirs").appendChild(
-      theirMessagesDom,
-    );
+// Renders just the last line for the current user (optimization for typing)
+function renderMyLast(message) {
+  const mySection = document.getElementById(`participant-${app.socketId}`);
+  if (!mySection) return;
+  const lastLi = mySection.querySelector("ul li:last-of-type");
+  if (lastLi) {
+    lastLi.innerText = message;
   }
+}
+
+// Renders just the last line for a specific participant (optimization for typing)
+function renderParticipantLast(participantId, message) {
+    const section = document.getElementById(`participant-${participantId}`);
+    if (!section) return;
+    const lastLi = section.querySelector("ul li:last-of-type");
+    if (lastLi) {
+        lastLi.innerText = message;
+    }
+}
+
+// Creates the DOM structure for a single participant's section
+function renderParticipantSection(container, participantId, messages, isSelf, participantCount) {
+  const sectionId = `participant-${participantId}`;
+  let section = document.getElementById(sectionId);
+
+  // Create section if it doesn't exist
+  if (!section) {
+    const shortId = getShortId(participantId);
+    const headerText = isSelf ? `YOU (${shortId})` : `PARTICIPANT (${shortId})`;
+    section = cre(`div.participant-section#${sectionId}`, [
+        cre('div.participant-header', headerText),
+        cre('div.participant-messages') // Container for the ul
+    ]);
+    container.appendChild(section);
+  }
+
+  // Set height dynamically - adjust calculation if needed (e.g., subtract header height)
+  const availableHeight = `calc(${100 / participantCount}vh - ${20 / participantCount}px)`; // Subtract proportional header height
+  section.style.height = availableHeight;
+
+
+  // Render messages within the section
+  renderParticipantMessages(participantId, messages, isSelf);
 }
 // if the regex is shit blame gpt, i can't be assed to do this cleaner at the moment
 function linkify(inputText, copy) {
@@ -282,38 +309,37 @@ function padString(string, clip) {
     }</span> =${hyphens}`;
 }
 
-function renderHeaders(room) {
-  const participantCount = room.participants || 0;
+// Renders the main header at the top
+function renderMainHeader(room) {
+  const participantCount = room?.participants || 0; // Handle potential undefined room
   const topMessageBase = `typeto.me 2 | issues: https://github.com/jabyrd3/typeto.me2/issues`;
-  let topMessage;
+  let headerMessage;
 
-  if (participantCount <= 1) {
-    topMessage = window.app.clipped
+  if (!room || participantCount <= 0) {
+      headerMessage = "Connecting or Room Invalid...";
+  } else if (participantCount === 1) {
+    headerMessage = window.app.clipped
       ? `typeto.me 2 | chat link copied! Send it to friends.`
       : `typeto.me 2 | Send this URL to friends: ${window.location.href}`;
   } else {
-    topMessage = `${topMessageBase} | ${participantCount} participants`;
+    headerMessage = `${topMessageBase} | ${participantCount} participants in room ${room.id}`;
   }
 
-  const bottomMessage = participantCount > 1
-    ? `YOU (${app.socketId?.substring(0, 4)})${window.location.pathname}` // Show your short ID
-    : "Waiting for others to join...";
-
-  const paddedTopMessage = padString(topMessage, participantCount <= 1)
+  const paddedHeaderMessage = padString(headerMessage, participantCount <= 1)
     .replace(
       "typeto.me 2",
       `<a target="_blank" href="https://github.com/jabyrd3/typeto.me2">typeto.me 2${ghIconModule}</a>`,
     );
-  const paddedBottomMessage = padString(bottomMessage);
 
-  // Pulsate effect only when waiting for the *first* other person
-  document.querySelector("#theirs-header").innerHTML = `<span ${participantCount <= 1 ? 'class="pulsate"' : ""
-    }>${paddedTopMessage}</span>`;
-  document.querySelector("#mine-header").innerHTML =
-    `<span>${paddedBottomMessage}</span>`;
+  const headerElement = document.querySelector("#main-header");
+  if (headerElement) {
+      // Pulsate effect only when waiting for the *first* other person
+      headerElement.innerHTML = `<span ${participantCount === 1 ? 'class="pulsate"' : ""}>${paddedHeaderMessage}</span>`;
+  }
+
 
   // Re-attach copy listeners as innerHTML overwrites them
-  const copyableLinks = document.querySelectorAll(".copyable");
+  const copyableLinks = document.querySelectorAll("#main-header .copyable"); // Scope query to header
   for (let i = 0; i < copyableLinks.length; i++) {
     const link = copyableLinks[i];
     link.addEventListener("click", (e) => {
@@ -323,8 +349,31 @@ function renderHeaders(room) {
   }
 }
 
+// Main render function: Clears container and renders all participant sections
 function fullRender(socketID, room) {
-  renderHeaders(room);
-  renderTheirs(socketID, room);
-  renderMine(socketID, room);
+  renderMainHeader(room); // Render the single top header
+
+  const container = document.getElementById("chat-container");
+  container.innerHTML = ""; // Clear previous sections
+
+  const participantIds = Object.keys(room.messages || {});
+  const participantCount = participantIds.length;
+
+  if (participantCount === 0) {
+      // Handle case with no participants (e.g., initial load error?)
+      container.innerHTML = '<div style="text-align: center; padding-top: 20px;">Waiting for room data...</div>';
+      return;
+  }
+
+  // Ensure own section is rendered first (optional, for consistent layout)
+  if (room.messages[socketID]) {
+      renderParticipantSection(container, socketID, room.messages[socketID], true, participantCount);
+  }
+
+  // Render other participants
+  participantIds.forEach(id => {
+    if (id !== socketID) {
+      renderParticipantSection(container, id, room.messages[id], false, participantCount);
+    }
+  });
 }

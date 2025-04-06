@@ -74,42 +74,76 @@
       z-index: 2;
     }
 
-    #theirs-wrap,
-    #mine-wrap {
-      height: 50vh;
-      width: calc(100vw - 16px);
-      float: left;
-      break: both;
-      position: fixed;
-      overflow: hidden;
-      padding: 0px 8px;
-    }
-
-    #theirs,
-    #mine {
-      height: calc(50vh - 20px);
-      top: 20px;
-      bottom: 0px;
-      overflow: hidden;
-      position: absolute;
-      width: calc(100vw - 16px);
-    }
-
-    #theirs-wrap {
+    #main-header {
+      position: fixed; /* Keep header fixed at the top */
+      width: 100%;
       top: 0;
       left: 0;
+      text-align: center;
+      white-space: nowrap;
+      z-index: 10; /* Ensure header is above chat sections */
+      background-color: black; /* Give header a background */
+      padding: 0; /* Adjust as needed */
+      height: 20px; /* Match font-size or desired header height */
+      line-height: 20px; /* Vertically center text */
     }
 
-    #mine-wrap {
-      top: 50vh;
-      left: 0vh;
-    }
-
-    #theirs-header,
-    #mine-header {
+    #chat-container {
       position: absolute;
-      width: 100vw;
-      top: 0;
+      top: 20px; /* Start below the fixed header */
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      flex-direction: column; /* Stack participant sections vertically */
+      overflow: hidden; /* Hide overflow for the container */
+    }
+
+    .participant-section {
+      flex-grow: 1; /* Allow sections to grow */
+      flex-basis: 0; /* Distribute space evenly */
+      overflow: hidden; /* Hide overflow within each section */
+      position: relative; /* Needed for absolute positioning of ul */
+      border-bottom: 1px dashed #FFB000; /* Separator line */
+      padding: 0 8px; /* Match old padding */
+      display: flex; /* Use flexbox for inner layout */
+      flex-direction: column; /* Stack header and messages vertically */
+    }
+
+    .participant-section:last-child {
+      border-bottom: none; /* No border for the last section */
+    }
+
+    .participant-header {
+      height: 20px; /* Fixed height for participant header */
+      line-height: 20px;
+      text-align: center;
+      white-space: nowrap;
+      flex-shrink: 0; /* Prevent header from shrinking */
+      color: #ccc; /* Slightly dimmer color for participant headers */
+    }
+
+    .participant-messages {
+      flex-grow: 1; /* Allow message area to fill remaining space */
+      position: relative; /* Needed for absolute positioning of ul */
+      overflow: hidden; /* Hide overflow in message area */
+    }
+
+    .participant-messages ul {
+      /* ul is absolutely positioned within participant-messages */
+      position: absolute;
+      bottom: 0;
+      left: 8px; /* Adjust based on parent padding */
+      right: 8px; /* Adjust based on parent padding */
+      /* Remove width: calc(100vw - 16px); */
+    }
+
+
+    #theirs-header, /* Remove old selectors */
+    #mine-header { /* Remove old selectors */
+      /* position: absolute; */ /* Remove old styles */
+      /* width: 100vw; */ /* Remove old styles */
+      /* top: 0; */ /* Remove old styles */
       left: 0;
       text-align: center;
       white-space: nowrap;
@@ -403,14 +437,10 @@
 <body>
 
   <script type="module" src="gui/app.module.js"></script>
-  <div id="main" class="scanlines">
-    <div id="theirs-wrap">
-      <div id="theirs-header"></div>
-      <div id="theirs"></div>
-    </div>
-    <div id="mine-wrap">
-      <div id="mine-header"></div>
-      <div id="mine"></div>
+  <div id="main" class="scanlines crt">
+    <div id="main-header"></div>
+    <div id="chat-container">
+      <!-- Participant sections will be added here dynamically -->
     </div>
   </div>
 </body>
