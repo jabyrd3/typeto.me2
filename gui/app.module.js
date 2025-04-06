@@ -71,6 +71,10 @@ class App {
     const {
       key,
     } = evt;
+    // Prevent Firefox from opening search box when '/' or "'" is pressed
+    if ((key === '/' || key === "'") && navigator.userAgent.includes('Firefox')) {
+      evt.preventDefault();
+    }
     if (!evt.metaKey && !evt.ctrlKey) {
       const target = this.room.messages[this.socketId];
       this.ws.json({
