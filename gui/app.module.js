@@ -385,15 +385,15 @@ function fullRender(socketID, room) {
       return;
   }
 
-  // Ensure own section is rendered first (optional, for consistent layout)
-  if (room.messages[socketID]) {
-      renderParticipantSection(container, socketID, room.messages[socketID], true, participantCount);
-  }
-
-  // Render other participants
+  // Render other participants first
   participantIds.forEach(id => {
     if (id !== socketID) {
       renderParticipantSection(container, id, room.messages[id], false, participantCount);
     }
   });
+
+  // Render own section last
+  if (room.messages[socketID]) {
+      renderParticipantSection(container, socketID, room.messages[socketID], true, participantCount);
+  }
 }
