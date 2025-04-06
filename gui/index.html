@@ -166,23 +166,27 @@
       position: relative;
     }
 
+    /* Hide the default cursor block */
     .cursor::after {
-      content: "";
-      position: absolute;
-      /* Remove display: inline-block if not required to be on the same line as text etc */
+      display: none;
+    }
+    
+    .text-cursor {
       display: inline-block;
-      background-color: #606060;
-      vertical-align: top;
-      width: 10px;
-      /* Set height to the line height of .text */
+      color: #FFB000;
+      background-color: #FFB000;
+      width: 2px;
       height: 20px;
-      /* 
-              Animation paramaters:
-              blink = animation-name, 
-              1s = animation-duration, 
-              step-end = animation-timing-function,
-              infinite = animation-iteration-count
-              */
+      -webkit-animation: blink 1s step-end infinite;
+      animation: blink 1s step-end infinite;
+    }
+    
+    .remote-cursor {
+      display: inline-block;
+      color: #00B0FF;
+      background-color: #00B0FF;
+      width: 2px;
+      height: 20px;
       -webkit-animation: blink 1s step-end infinite;
       animation: blink 1s step-end infinite;
     }

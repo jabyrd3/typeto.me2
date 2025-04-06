@@ -39,6 +39,18 @@ class Room {
       "Enter",
       "Escape",
       "Backspace",
+      "ArrowLeft",
+      "ArrowRight",
+      "ArrowUp",
+      "ArrowDown",
+      "Tab",
+      "Delete",
+      "DeleteAt",
+      "CtrlA",
+      "CtrlE",
+      "CtrlK",
+      "CtrlB",
+      "CtrlF"
     ];
   }
   join(socket) {
@@ -118,7 +130,7 @@ class Room {
       otherParticipantIds: otherIds, // List of all other participant IDs
     };
   }
-  keyPress(socket, key) {
+  keyPress(socket, key, cursorPos) {
     // console.log(`socket ${socket.id} pressed key ${key} in room ${this.id}`);
     if (key === "Enter") {
       this.message(socket, {
@@ -127,20 +139,52 @@ class Room {
         source: socket.id,
       });
       this.messages[socket.id].push("");
+      return;
     }
+    
+    // For all keys, broadcast to other clients (including cursor position)
+    this.message(socket, { 
+      type: "keyPress", 
+      key, 
+      source: socket.id,
+      cursorPos: cursorPos
+    });
+    
+    // For non-arrow keys, update our local state
     const ourMessages = this.messages[socket.id];
-    if (!this.nonEvents.includes(key)) {
-      // Add the character locally first
-      ourMessages.splice(-1, 1, ourMessages.slice(-1)[0] + key);
-      // Broadcast the key press to others
-      this.message(socket, { type: "keyPress", key, source: socket.id });
+    const currentLine = ourMessages.slice(-1)[0];
+    
+    if (key === "CtrlK" && cursorPos !== undefined) {
+      // Control+K: Delete from cursor to end of line
+      const newLine = currentLine.slice(0, cursorPos);
+      ourMessages.splice(-1, 1, newLine);
+    } else if (key === "DeleteAt" && cursorPos !== undefined) {
+      // Delete at cursor position
+      if (cursorPos < currentLine.length) {
+        const newLine = currentLine.slice(0, cursorPos) + currentLine.slice(cursorPos + 1);
+        ourMessages.splice(-1, 1, newLine);
+      }
+    } else if (key === "Delete" && cursorPos !== undefined) {
+      // Delete at cursor position
+      if (cursorPos < currentLine.length) {
+        const newLine = currentLine.slice(0, cursorPos) + currentLine.slice(cursorPos + 1);
+        ourMessages.splice(-1, 1, newLine);
+      }
+    } else if (key === "Backspace" && cursorPos !== undefined && cursorPos > 0) {
+      // Apply backspace at cursor position
+      const newLine = currentLine.slice(0, cursorPos - 1) + currentLine.slice(cursorPos);
+      ourMessages.splice(-1, 1, newLine);
+    } else if (key === "Space" && cursorPos !== undefined) {
+      // Apply space at cursor position
+      const newLine = currentLine.slice(0, cursorPos) + " " + currentLine.slice(cursorPos);
+      ourMessages.splice(-1, 1, newLine);
+    } else if (!this.nonEvents.includes(key) && cursorPos !== undefined) {
+      // Add regular character at cursor position
+      const newLine = currentLine.slice(0, cursorPos) + key + currentLine.slice(cursorPos);
+      ourMessages.splice(-1, 1, newLine);
     }
-    if (key === "Backspace") {
-      // Apply backspace locally first
-      ourMessages.splice(-1, 1, ourMessages.slice(-1)[0].slice(0, -1));
-      // Broadcast the backspace to others
-      this.message(socket, { type: "keyPress", key, source: socket.id });
-    }
+    // We don't need to handle CtrlA, CtrlE, CtrlB, CtrlF on the server as they only affect cursor position
+    // We don't update local state for arrow keys since they only affect cursor position
   }
 }
 class Rooms {
@@ -283,7 +327,7 @@ Deno.serve({ hostname: "0.0.0.0", port: 8090 }, async (req) => {
           break;
         case "keyPress":
           // someone pushed a button
-          rooms.rooms[socket.roomId].keyPress(socket, body.key);
+          rooms.rooms[socket.roomId].keyPress(socket, body.key, body.cursorPos);
       }
     });
     return response;

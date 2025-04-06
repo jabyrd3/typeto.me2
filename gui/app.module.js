@@ -9,6 +9,17 @@ const nonEvents = [
   "Enter",
   "Escape",
   "Backspace",
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowUp",
+  "ArrowDown",
+  "Tab",
+  "Delete",
+  "CtrlA",
+  "CtrlE",
+  "CtrlK",
+  "CtrlB",
+  "CtrlF"
 ];
 
 class App {
@@ -17,6 +28,7 @@ class App {
     this.setup();
     this.connected = false;
     this.clipped = false;
+    this.cursorPos = 0; // Track cursor position
     window.clippy = this.clipboard;
     setInterval(() => {
       if (this.ws.readyState !== 1) {
@@ -75,43 +87,160 @@ class App {
     if ((key === '/' || key === "'") && navigator.userAgent.includes('Firefox')) {
       evt.preventDefault();
     }
+    // Prevent Tab from moving focus
+    if (key === "Tab") {
+      evt.preventDefault();
+    }
+    
+    // Handle Control key combinations
+    if (evt.ctrlKey) {
+      evt.preventDefault();
+      const msgs = this.room.messages[this.socketId];
+      const currentLine = msgs.slice(-1)[0];
+      
+      if (key === "a") {
+        // Control+A: move cursor to beginning of line
+        this.cursorPos = 0;
+        this.ws.json({
+          type: "keyPress",
+          key: "CtrlA",
+          cursorPos: this.cursorPos
+        });
+        renderMyLastWithCursor(currentLine, this.cursorPos);
+        return;
+      }
+      
+      if (key === "e") {
+        // Control+E: move cursor to end of line
+        this.cursorPos = currentLine.length;
+        this.ws.json({
+          type: "keyPress",
+          key: "CtrlE",
+          cursorPos: this.cursorPos
+        });
+        renderMyLastWithCursor(currentLine, this.cursorPos);
+        return;
+      }
+      
+      if (key === "k") {
+        // Control+K: delete from cursor to end of line
+        const newLine = currentLine.slice(0, this.cursorPos);
+        msgs.splice(-1, 1, newLine);
+        this.ws.json({
+          type: "keyPress",
+          key: "CtrlK",
+          cursorPos: this.cursorPos
+        });
+        renderMyLastWithCursor(newLine, this.cursorPos);
+        return;
+      }
+      
+      if (key === "b") {
+        // Control+B: move cursor back one character (like left arrow)
+        this.cursorPos = Math.max(0, this.cursorPos - 1);
+        this.ws.json({
+          type: "keyPress",
+          key: "CtrlB",
+          cursorPos: this.cursorPos
+        });
+        renderMyLastWithCursor(currentLine, this.cursorPos);
+        return;
+      }
+      
+      if (key === "f") {
+        // Control+F: move cursor forward one character (like right arrow)
+        this.cursorPos = Math.min(currentLine.length, this.cursorPos + 1);
+        this.ws.json({
+          type: "keyPress",
+          key: "CtrlF",
+          cursorPos: this.cursorPos
+        });
+        renderMyLastWithCursor(currentLine, this.cursorPos);
+        return;
+      }
+      
+      if (key === "d") {
+        // Control+D: delete character at cursor
+        if (this.cursorPos < currentLine.length) {
+          // Delete character at cursor position (not after cursor)
+          const newLine = currentLine.slice(0, this.cursorPos) + currentLine.slice(this.cursorPos + 1);
+          msgs.splice(-1, 1, newLine);
+          
+          // Send a custom key type for delete-at-cursor
+          this.ws.json({
+            type: "keyPress",
+            key: "DeleteAt",
+            cursorPos: this.cursorPos
+          });
+          
+          renderMyLastWithCursor(newLine, this.cursorPos);
+        }
+        return;
+      }
+    }
+    
     if (!evt.metaKey && !evt.ctrlKey) {
       const target = this.room.messages[this.socketId];
       this.ws.json({
         type: "keyPress",
         key,
+        cursorPos: this.cursorPos
       });
       const msgs = this.room.messages[this.socketId];
+      const currentLine = msgs.slice(-1)[0];
+      
       if (key !== "Enter") {
-        if (key === "Space") {
-          msgs.splice(
-            -1,
-            1,
-            this.room.messages[this.socketId].slice(-1)[0] + " ",
-          );
+        // Handle arrow keys for cursor movement
+        if (key === "ArrowLeft") {
+          // Move cursor left if possible
+          this.cursorPos = Math.max(0, this.cursorPos - 1);
+          renderMyLastWithCursor(currentLine, this.cursorPos);
+          return;
         }
-        if (key === "Backspace") {
-          msgs.splice(
-            -1,
-            1,
-            this.room.messages[this.socketId].slice(-1)[0].slice(0, -1),
-          );
+        if (key === "ArrowRight") {
+          // Move cursor right if possible
+          this.cursorPos = Math.min(currentLine.length, this.cursorPos + 1);
+          renderMyLastWithCursor(currentLine, this.cursorPos);
+          return;
         }
-        if (!nonEvents.includes(key)) {
-          msgs.splice(
-            -1,
-            1,
-            this.room.messages[this.socketId].slice(-1)[0] + key,
-          );
+        
+        if (key === "Delete") {
+          // Delete character at cursor position
+          if (this.cursorPos < currentLine.length) {
+            const newLine = currentLine.slice(0, this.cursorPos) + currentLine.slice(this.cursorPos + 1);
+            msgs.splice(-1, 1, newLine);
+          }
+        }
+        else if (key === "Space") {
+          // Insert space at cursor position
+          const newLine = currentLine.slice(0, this.cursorPos) + " " + currentLine.slice(this.cursorPos);
+          msgs.splice(-1, 1, newLine);
+          this.cursorPos++;
+        }
+        else if (key === "Backspace") {
+          if (this.cursorPos > 0) {
+            // Delete character before cursor
+            const newLine = currentLine.slice(0, this.cursorPos - 1) + currentLine.slice(this.cursorPos);
+            msgs.splice(-1, 1, newLine);
+            this.cursorPos--;
+          }
+        }
+        else if (!nonEvents.includes(key)) {
+          // Insert character at cursor position
+          const newLine = currentLine.slice(0, this.cursorPos) + key + currentLine.slice(this.cursorPos);
+          msgs.splice(-1, 1, newLine);
+          this.cursorPos++;
         }
       } else { // Enter key pressed
         msgs.push("");
+        this.cursorPos = 0; // Reset cursor position for new line
         // Re-render the whole section for the user on Enter to show the new empty line
         renderParticipantMessages(this.socketId, msgs, true);
       }
+      
       // Always update the last line visually as typing happens (except Enter)
       if (key !== "Enter") {
-          renderMyLast(msgs.slice(-1)[0]); // Pass the actual string content
+        renderMyLastWithCursor(msgs.slice(-1)[0], this.cursorPos);
       }
     }
   };
@@ -156,6 +285,7 @@ class App {
           `/${body.room.id}`,
         );
         this.room = body.room;
+        this.cursorPos = this.room.messages[this.socketId]?.slice(-1)[0]?.length || 0;
         fullRender(this.socketId, this.room);
         break;
       case "gotRoom":
@@ -167,6 +297,7 @@ class App {
           );
         }
         this.room = body.room;
+        this.cursorPos = this.room.messages[this.socketId]?.slice(-1)[0]?.length || 0;
         fullRender(this.socketId, this.room);
         break;
       case "committed":
@@ -184,15 +315,107 @@ class App {
         const pressTarget = this.room.messages[pressSourceId];
         if (pressTarget) {
             let currentLastLine = pressTarget.slice(-1)[0];
-            if (body.key === "Backspace") {
-                pressTarget.splice(-1, 1, currentLastLine.slice(0, -1));
-            } else if (body.key === "Space") { // Handle space explicitly if needed
-                 pressTarget.splice(-1, 1, currentLastLine + " ");
-            } else if (!nonEvents.includes(body.key) && body.key.length === 1) { // Basic check for printable chars
-                pressTarget.splice(-1, 1, currentLastLine + body.key);
+            
+            // For arrow keys, just update cursor position tracking
+            if (body.key === "ArrowLeft" || body.key === "ArrowRight") {
+                // Store cursor position for this user if provided
+                if (body.cursorPos !== undefined) {
+                    if (!this.room.cursorPositions) {
+                        this.room.cursorPositions = {};
+                    }
+                    this.room.cursorPositions[pressSourceId] = body.cursorPos;
+                    // Simply render the text without cursor - don't show remote cursors
+                    renderParticipantLast(pressSourceId, currentLastLine);
+                }
             }
-            // Render only the last line update for the specific participant
-            renderParticipantLast(pressSourceId, pressTarget.slice(-1)[0]);
+            else if (body.key === "CtrlK") {
+                if (body.cursorPos !== undefined) {
+                    // Delete from cursor to end of line
+                    const newLine = currentLastLine.slice(0, body.cursorPos);
+                    pressTarget.splice(-1, 1, newLine);
+                }
+            }
+            else if (body.key === "Delete" || body.key === "DeleteAt") {
+                if (body.cursorPos !== undefined && body.cursorPos < currentLastLine.length) {
+                    // Delete character at cursor position
+                    const newLine = currentLastLine.slice(0, body.cursorPos) + 
+                                   currentLastLine.slice(body.cursorPos + 1);
+                    pressTarget.splice(-1, 1, newLine);
+                }
+            }
+            else if (body.key === "Backspace") {
+                if (body.cursorPos !== undefined && body.cursorPos > 0) {
+                    // Delete character at cursor position - 1
+                    const newLine = currentLastLine.slice(0, body.cursorPos - 1) + 
+                                   currentLastLine.slice(body.cursorPos);
+                    pressTarget.splice(-1, 1, newLine);
+                } else {
+                    // Fallback to old behavior
+                    pressTarget.splice(-1, 1, currentLastLine.slice(0, -1));
+                }
+            } 
+            else if (body.key === "Space") {
+                if (body.cursorPos !== undefined) {
+                    // Insert space at cursor position
+                    const newLine = currentLastLine.slice(0, body.cursorPos) + 
+                                   " " + 
+                                   currentLastLine.slice(body.cursorPos);
+                    pressTarget.splice(-1, 1, newLine);
+                } else {
+                    // Fallback to old behavior
+                    pressTarget.splice(-1, 1, currentLastLine + " ");
+                }
+            } 
+            else if (!nonEvents.includes(body.key) && body.key.length === 1) {
+                if (body.cursorPos !== undefined) {
+                    // Insert character at cursor position
+                    const newLine = currentLastLine.slice(0, body.cursorPos) + 
+                                   body.key + 
+                                   currentLastLine.slice(body.cursorPos);
+                    pressTarget.splice(-1, 1, newLine);
+                } else {
+                    // Fallback to old behavior
+                    pressTarget.splice(-1, 1, currentLastLine + body.key);
+                }
+            }
+            
+            // Track cursor position for this user if provided
+            if (body.cursorPos !== undefined) {
+                if (!this.room.cursorPositions) {
+                    this.room.cursorPositions = {};
+                }
+                // Update cursor position based on the key pressed
+                if (body.key === "ArrowLeft") {
+                    this.room.cursorPositions[pressSourceId] = body.cursorPos;
+                } else if (body.key === "ArrowRight") {
+                    this.room.cursorPositions[pressSourceId] = body.cursorPos;
+                } else if (body.key === "Backspace") {
+                    this.room.cursorPositions[pressSourceId] = body.cursorPos > 0 ? body.cursorPos - 1 : 0;
+                } else if (body.key === "Delete" || body.key === "DeleteAt" || body.key === "CtrlK") {
+                    // Cursor stays in the same position
+                    this.room.cursorPositions[pressSourceId] = body.cursorPos;
+                } else if (body.key === "CtrlA") {
+                    // Cursor at beginning of line
+                    this.room.cursorPositions[pressSourceId] = 0;
+                } else if (body.key === "CtrlE") {
+                    // Cursor at end of line
+                    this.room.cursorPositions[pressSourceId] = pressTarget.slice(-1)[0].length;
+                } else if (body.key === "CtrlB") {
+                    // Cursor back one character
+                    this.room.cursorPositions[pressSourceId] = Math.max(0, body.cursorPos - 1);
+                } else if (body.key === "CtrlF") {
+                    // Cursor forward one character
+                    this.room.cursorPositions[pressSourceId] = Math.min(pressTarget.slice(-1)[0].length, body.cursorPos + 1);
+                } else if (!nonEvents.includes(body.key)) {
+                    this.room.cursorPositions[pressSourceId] = body.cursorPos + 1;
+                }
+                
+                // Don't show cursor for other users, just render text
+                renderParticipantLast(pressSourceId, pressTarget.slice(-1)[0]);
+            } else {
+                // Fallback to normal rendering
+                renderParticipantLast(pressSourceId, pressTarget.slice(-1)[0]);
+            }
         }
         break;
     }
@@ -255,10 +478,29 @@ function renderParticipantMessages(participantId, messages, isSelf) {
   if (messages && messages.length > 0) {
     messagesDom = cre(
       "ul",
-      messages.map((message, idx) =>
-        // Add cursor only to the last message of the current user (isSelf)
-        cre(`li${isSelf && idx === messages.length - 1 ? ".cursor" : ""}`, message)
-      ),
+      messages.map((message, idx) => {
+        // For the last message of the current user, add cursor with position
+        if (isSelf && idx === messages.length - 1) {
+          // Create element but don't set content yet
+          const li = cre(`li.cursor`, "");
+          
+          // On the next tick, update with cursor position
+          setTimeout(() => {
+            if (app.cursorPos !== undefined) {
+              const beforeCursor = message.slice(0, app.cursorPos);
+              const afterCursor = message.slice(app.cursorPos);
+              li.innerHTML = `${beforeCursor}<span class="text-cursor">|</span>${afterCursor}`;
+            } else {
+              li.innerText = message;
+            }
+          }, 0);
+          
+          return li;
+        } else {
+          // Regular message for other users or previous messages
+          return cre("li", message);
+        }
+      })
     );
   } else {
     // Ensure even an empty section has a ul and a cursor if it's the self user
@@ -279,6 +521,19 @@ function renderMyLast(message) {
   }
 }
 
+// Renders last line with visible cursor at specified position
+function renderMyLastWithCursor(message, cursorPos) {
+  const mySection = document.getElementById(`participant-${app.socketId}`);
+  if (!mySection) return;
+  const lastLi = mySection.querySelector("ul li:last-of-type");
+  if (lastLi) {
+    // Split message at cursor position and insert cursor character
+    const beforeCursor = message.slice(0, cursorPos);
+    const afterCursor = message.slice(cursorPos);
+    lastLi.innerHTML = `${beforeCursor}<span class="text-cursor">|</span>${afterCursor}`;
+  }
+}
+
 // Renders just the last line for a specific participant (optimization for typing)
 function renderParticipantLast(participantId, message) {
     const section = document.getElementById(`participant-${participantId}`);
@@ -286,6 +541,21 @@ function renderParticipantLast(participantId, message) {
     const lastLi = section.querySelector("ul li:last-of-type");
     if (lastLi) {
         lastLi.innerText = message;
+    }
+}
+
+// Renders last line with cursor at specified position for a participant
+function renderParticipantLastWithCursor(participantId, message, cursorPos) {
+    const section = document.getElementById(`participant-${participantId}`);
+    if (!section) return;
+    const lastLi = section.querySelector("ul li:last-of-type");
+    if (lastLi) {
+        // Split message at cursor position and insert cursor character
+        const beforeCursor = message.slice(0, cursorPos);
+        const afterCursor = message.slice(cursorPos);
+        // Use a different style for remote cursors vs. self cursor
+        const cursorClass = participantId === app.socketId ? "text-cursor" : "remote-cursor";
+        lastLi.innerHTML = `${beforeCursor}<span class="${cursorClass}">|</span>${afterCursor}`;
     }
 }
 
