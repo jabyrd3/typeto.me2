@@ -135,7 +135,7 @@
       position: relative; /* Needed for absolute positioning of ul */
       overflow: hidden; /* Hide overflow in message area */
     }
-
+    
     .participant-messages ul {
       /* ul is absolutely positioned within participant-messages */
       position: absolute;
@@ -144,6 +144,7 @@
       right: 8px; /* Adjust based on parent padding */
       /* Remove width: calc(100vw - 16px); */
       padding-inline-start: 0; /* Reset padding from body */
+      margin-bottom: 20px; /* One line's worth of margin to prevent URL hover overlaps in Firefox */
     }
 
 
