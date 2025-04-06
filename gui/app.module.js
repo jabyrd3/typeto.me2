@@ -196,7 +196,7 @@ class App {
 
   clipboard = (type, rawMessage) => {
     this.clipped = true;
-    renderHeaders(this.room);
+    renderMainHeader(this.room); // Use the correct header rendering function
     const data = [
       new ClipboardItem({
         [type]: new Blob([rawMessage], { type }),
