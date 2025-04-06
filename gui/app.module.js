@@ -234,12 +234,6 @@ function renderError(message) {
    if (mainHeader) mainHeader.innerHTML = padString("Error");
 
 }
-// Helper to get the short ID // NOTE: This function definition is kept as it exists below this point
-function getShortId(id) { // Keep the function signature line for context, but the body is replaced above
-  document.querySelector("#main").appendChild( // This line is part of the original function body being replaced
-    cre("div.error", message),
-  );
-}
 // Helper to get the short ID
 function getShortId(id) {
   return id?.substring(0, 4) || "??";
