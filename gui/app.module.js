@@ -403,6 +403,7 @@ function fullRender(socketID, room) {
   renderMainHeader(room); // Render the single top header
 
   const container = document.getElementById("chat-container");
+  if (!container) return; // Exit if container doesn't exist yet
   container.innerHTML = ""; // Clear previous sections
 
   const participantIds = Object.keys(room.messages || {});
