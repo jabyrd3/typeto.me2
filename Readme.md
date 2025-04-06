@@ -69,6 +69,12 @@ Here is an example SSL reverse proxy configuration:
 </VirtualHost>
 ```
 
+Here is how to do it in Caddy, which should convince you that you should be using Caddy:
+
+```
+typeto.me {	reverse_proxy localhost:8090 }
+```
+
 # credits
 
 [Jordan Byrd](https://jordanbyrd.com/) (main contributor)
