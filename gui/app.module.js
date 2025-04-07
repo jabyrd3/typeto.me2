@@ -29,6 +29,7 @@ class App {
     this.connected = false;
     this.clipped = false;
     this.cursorPos = 0; // Track cursor position
+    this.keyboardInput = null; // Reference to the hidden input
     window.clippy = this.clipboard;
     setInterval(() => {
       if (this.ws.readyState !== 1) {
@@ -242,8 +243,48 @@ class App {
       if (key !== "Enter") {
         renderMyLastWithCursor(msgs.slice(-1)[0], this.cursorPos);
       }
+      // Old rendering logic moved or handled by specific key handlers above
     }
   };
+
+  // --- Handler for the hidden input element ---
+  inputHandler = (evt) => {
+    const inputText = evt.data || evt.target.value; // Get typed character(s)
+    if (!inputText || !this.room || !this.room.messages[this.socketId]) return; // Guard clause
+
+    // Send each character individually if multiple were entered (e.g., paste, autocorrect)
+    for (const char of inputText) {
+        if (nonEvents.includes(char)) continue; // Skip non-printable chars if any slip through
+
+        this.ws.json({
+            type: "keyPress",
+            key: char,
+            cursorPos: this.cursorPos
+        });
+
+        // Update local state immediately
+        const msgs = this.room.messages[this.socketId];
+        const currentLine = msgs.slice(-1)[0];
+        const newLine = currentLine.slice(0, this.cursorPos) + char + currentLine.slice(this.cursorPos);
+        msgs.splice(-1, 1, newLine);
+        this.cursorPos++; // Move cursor forward
+
+        // Update the display for the user's last line
+        renderMyLastWithCursor(newLine, this.cursorPos);
+    }
+
+    // Clear the hidden input field immediately
+    evt.target.value = '';
+  };
+
+  // --- Focus helper ---
+  focusKeyboardInput = () => {
+    if (this.keyboardInput && document.activeElement !== this.keyboardInput) {
+        this.keyboardInput.focus({ preventScroll: true }); // preventScroll might help avoid jumps
+    }
+  };
+
+
   teardown = () => {
     console.log("teardown hit, reconecting?");
     try {
@@ -253,6 +294,14 @@ class App {
     }
     window.removeEventListener("keydown", this.keydownHandler);
     document.removeEventListener("paste", this.pasteListener);
+    // Remove input listener
+    if (this.keyboardInput) {
+        this.keyboardInput.removeEventListener("input", this.inputHandler);
+    }
+    // Remove focus listener
+    document.getElementById("main")?.removeEventListener("click", this.focusKeyboardInput);
+    document.getElementById("main")?.removeEventListener("touchstart", this.focusKeyboardInput);
+
   };
   rootHandler = () => {
     this.connected = true;
@@ -287,6 +336,8 @@ class App {
         this.room = body.room;
         this.cursorPos = this.room.messages[this.socketId]?.slice(-1)[0]?.length || 0;
         fullRender(this.socketId, this.room);
+        // Setup input handling after room is ready
+        this.setupInputHandling();
         break;
       case "gotRoom":
         if (window.location.pathname === "/") {
@@ -299,6 +350,8 @@ class App {
         this.room = body.room;
         this.cursorPos = this.room.messages[this.socketId]?.slice(-1)[0]?.length || 0;
         fullRender(this.socketId, this.room);
+         // Setup input handling after room is ready
+        this.setupInputHandling();
         break;
       case "committed":
         const commitSourceId = body.source;
@@ -419,6 +472,31 @@ class App {
         }
         break;
     }
+  };
+
+  // --- Setup input listeners and focus ---
+  setupInputHandling = () => {
+      this.keyboardInput = document.getElementById("keyboard-input");
+      if (!this.keyboardInput) {
+          console.error("Keyboard input element not found!");
+          return;
+      }
+      // Remove existing listener before adding a new one
+      this.keyboardInput.removeEventListener("input", this.inputHandler);
+      this.keyboardInput.addEventListener("input", this.inputHandler);
+
+      // Focus the input when the user interacts with the main area
+      const mainElement = document.getElementById("main");
+       // Remove potential old listeners first
+      mainElement?.removeEventListener("click", this.focusKeyboardInput);
+      mainElement?.removeEventListener("touchstart", this.focusKeyboardInput);
+      // Add new listeners
+      mainElement?.addEventListener("click", this.focusKeyboardInput, { passive: true }); // Use passive for touchstart if just focusing
+      mainElement?.addEventListener("touchstart", this.focusKeyboardInput, { passive: true });
+
+
+      // Initial focus
+      this.focusKeyboardInput();
   };
 
   clipboard = (type, rawMessage) => {
