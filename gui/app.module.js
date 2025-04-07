@@ -30,9 +30,11 @@ class App {
     this.clipped = false;
     this.cursorPos = 0; // Track cursor position
     this.keyboardInput = null; // Reference to the hidden input
+    this.mainHeaderHeight = 20; // Store header height, matches CSS
     window.clippy = this.clipboard;
     setInterval(() => {
-      if (this.ws.readyState !== 1) {
+      // Check WebSocket connection periodically
+      if (this.ws && this.ws.readyState !== WebSocket.OPEN && this.ws.readyState !== WebSocket.CONNECTING) {
         this.connected = false;
         this.teardown();
         this.setup();
@@ -76,8 +78,18 @@ class App {
           currentMessages.slice(-1)[0] + pastedText,
         );
         // Re-render just this user's section after paste
-        renderParticipantMessages(this.socketId, currentMessages, true);
+        // Use fullRender after paste to ensure layout is correct, especially if content wraps
+        fullRender(this.socketId, this.room);
+        // Ensure cursor is at the end after paste
+        this.cursorPos = currentMessages.slice(-1)[0].length;
+        renderMyLastWithCursor(currentMessages.slice(-1)[0], this.cursorPos);
+        // Refocus input
+        this.focusKeyboardInput();
       });
+
+      // Add resize listeners
+      window.visualViewport.addEventListener('resize', this.handleResize);
+      window.addEventListener('resize', this.handleResize); // Fallback/standard resize
     }
   };
   keydownHandler = (evt) => {
@@ -298,6 +310,9 @@ class App {
     document.getElementById("main")?.removeEventListener("click", this.focusKeyboardInput);
     document.getElementById("main")?.removeEventListener("touchstart", this.focusKeyboardInput);
 
+    // Remove resize listeners
+    window.visualViewport.removeEventListener('resize', this.handleResize);
+    window.removeEventListener('resize', this.handleResize);
   };
   rootHandler = () => {
     this.connected = true;
@@ -493,7 +508,33 @@ class App {
 
       // Initial focus
       this.focusKeyboardInput();
+      // Initial layout adjustment after setup
+      this.handleResize();
   };
+
+  // --- Resize Handler using VisualViewport ---
+  handleResize = () => {
+      if (!this.room) return; // Don't resize if room data isn't loaded
+
+      const chatContainer = document.getElementById("chat-container");
+      if (!chatContainer) return;
+
+      // Use visualViewport height if available, otherwise fallback to innerHeight
+      const availableHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+
+      // Adjust chat container height, subtracting the main header height
+      const chatContainerHeight = availableHeight - this.mainHeaderHeight;
+      chatContainer.style.height = `${chatContainerHeight}px`;
+
+      // Adjust top offset based on visualViewport offsetTop (for iOS keyboard handling)
+      // chatContainer.style.top = `${(window.visualViewport ? window.visualViewport.offsetTop : 0) + this.mainHeaderHeight}px`;
+      // Note: Setting 'top' dynamically might conflict with fixed header, test carefully.
+      // Sticking to height adjustment first.
+
+      // Re-render the layout with the new available height
+      fullRender(this.socketId, this.room, chatContainerHeight);
+  };
+
 
   clipboard = (type, rawMessage) => {
     this.clipped = true;
@@ -508,12 +549,7 @@ class App {
 }
 const app = await new App();
 window.app = app;
-// Update resize handler to call fullRender to recalculate heights and main header
-window.addEventListener("resize", () => {
-    if (window.app && window.app.room) {
-        fullRender(window.app.socketId, window.app.room);
-    }
-});
+// Remove the old standalone resize handler, it's now part of the App class (handleResize)
 function renderError(message) {
   // Ensure error message replaces the chat container content
   const mainDiv = document.querySelector("#main");
@@ -666,11 +702,12 @@ function renderParticipantSection(container, participantId, messages, isSelf, pa
     container.appendChild(section);
   }
 
-  // Set height dynamically - total chat height minus header and dividers, divided by participant count
+  // Calculate height based on the available height passed to fullRender
   const totalDividerHeight = (participantCount > 1 ? (participantCount - 1) : 0) * 20; // Each divider is 20px high
-  const availableHeightForSections = `calc(100vh - 20px - ${totalDividerHeight}px)`; // Subtract main header (20px) and all dividers
-  const sectionHeight = `calc(${availableHeightForSections} / ${participantCount})`;
-  section.style.height = sectionHeight;
+  // availableHeightForSections is now passed down from fullRender -> handleResize
+  const availableHeightForSections = container.clientHeight - totalDividerHeight; // Use actual container height
+  const sectionHeight = Math.max(20, availableHeightForSections / participantCount); // Ensure min height
+  section.style.height = `${sectionHeight}px`;
 
 
   // Render messages within the section
@@ -765,11 +802,20 @@ function renderDividerLine(participantId = null) {
 
 
 // Main render function: Clears container and renders all participant sections
-function fullRender(socketID, room) {
+// Now accepts availableHeight argument from handleResize
+function fullRender(socketID, room, availableHeight = null) {
   renderMainHeader(room); // Render the single top header
 
   const container = document.getElementById("chat-container");
   if (!container) return; // Exit if container doesn't exist yet
+
+  // If availableHeight wasn't passed, calculate it (e.g., initial load before resize)
+  if (availableHeight === null) {
+      const visualHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      availableHeight = visualHeight - window.app.mainHeaderHeight; // Use stored header height
+      container.style.height = `${availableHeight}px`; // Ensure container has height set
+  }
+
   container.innerHTML = ""; // Clear previous sections
 
   const participantIds = Object.keys(room.messages || {});
