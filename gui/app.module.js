@@ -179,71 +179,67 @@ class App {
         return;
       }
     }
-    
+
+    // --- Physical Keyboard Input Handling ---
+    // We only handle non-character keys here now.
+    // Character input is handled by the 'input' event on the hidden input field.
     if (!evt.metaKey && !evt.ctrlKey) {
-      const target = this.room.messages[this.socketId];
-      this.ws.json({
-        type: "keyPress",
-        key,
-        cursorPos: this.cursorPos
-      });
+      const key = evt.key;
       const msgs = this.room.messages[this.socketId];
       const currentLine = msgs.slice(-1)[0];
-      
-      if (key !== "Enter") {
-        // Handle arrow keys for cursor movement
-        if (key === "ArrowLeft") {
-          // Move cursor left if possible
-          this.cursorPos = Math.max(0, this.cursorPos - 1);
-          renderMyLastWithCursor(currentLine, this.cursorPos);
-          return;
-        }
-        if (key === "ArrowRight") {
-          // Move cursor right if possible
-          this.cursorPos = Math.min(currentLine.length, this.cursorPos + 1);
-          renderMyLastWithCursor(currentLine, this.cursorPos);
-          return;
-        }
-        
-        if (key === "Delete") {
-          // Delete character at cursor position
-          if (this.cursorPos < currentLine.length) {
-            const newLine = currentLine.slice(0, this.cursorPos) + currentLine.slice(this.cursorPos + 1);
-            msgs.splice(-1, 1, newLine);
-          }
-        }
-        else if (key === "Space") {
-          // Insert space at cursor position
-          const newLine = currentLine.slice(0, this.cursorPos) + " " + currentLine.slice(this.cursorPos);
-          msgs.splice(-1, 1, newLine);
-          this.cursorPos++;
-        }
-        else if (key === "Backspace") {
-          if (this.cursorPos > 0) {
-            // Delete character before cursor
-            const newLine = currentLine.slice(0, this.cursorPos - 1) + currentLine.slice(this.cursorPos);
-            msgs.splice(-1, 1, newLine);
-            this.cursorPos--;
-          }
-        }
-        else if (!nonEvents.includes(key)) {
-          // Insert character at cursor position
-          const newLine = currentLine.slice(0, this.cursorPos) + key + currentLine.slice(this.cursorPos);
-          msgs.splice(-1, 1, newLine);
-          this.cursorPos++;
-        }
-      } else { // Enter key pressed
-        msgs.push("");
-        this.cursorPos = 0; // Reset cursor position for new line
-        // Re-render the whole section for the user on Enter to show the new empty line
-        renderParticipantMessages(this.socketId, msgs, true);
+
+      // Only process special keys in keydown
+      if (key === "Enter" || key === "Backspace" || key === "Delete" || key.startsWith("Arrow") || key === "Tab") {
+         evt.preventDefault(); // Prevent default for Tab, etc.
+
+         this.ws.json({
+           type: "keyPress",
+           key,
+           cursorPos: this.cursorPos
+         });
+
+         if (key === "Enter") {
+           msgs.push("");
+           this.cursorPos = 0; // Reset cursor position for new line
+           renderParticipantMessages(this.socketId, msgs, true);
+           // Ensure input is focused for the next line
+           this.focusKeyboardInput();
+           return; // Stop further processing for Enter
+         } else if (key === "ArrowLeft") {
+           this.cursorPos = Math.max(0, this.cursorPos - 1);
+           renderMyLastWithCursor(currentLine, this.cursorPos);
+         } else if (key === "ArrowRight") {
+           this.cursorPos = Math.min(currentLine.length, this.cursorPos + 1);
+           renderMyLastWithCursor(currentLine, this.cursorPos);
+         } else if (key === "Delete") {
+           if (this.cursorPos < currentLine.length) {
+             const newLine = currentLine.slice(0, this.cursorPos) + currentLine.slice(this.cursorPos + 1);
+             msgs.splice(-1, 1, newLine);
+             renderMyLastWithCursor(newLine, this.cursorPos);
+           }
+         } else if (key === "Backspace") {
+           if (this.cursorPos > 0) {
+             const newLine = currentLine.slice(0, this.cursorPos - 1) + currentLine.slice(this.cursorPos);
+             msgs.splice(-1, 1, newLine);
+             this.cursorPos--;
+             renderMyLastWithCursor(newLine, this.cursorPos);
+           }
+         }
+         // Ensure input stays focused after handling special keys
+         this.focusKeyboardInput();
+
+      } else if (key.length === 1 && !nonEvents.includes(key)) {
+         // If it's a character key, prevent default actions like typing in the hidden input directly
+         // The 'input' event handler will manage character insertion.
+         // We still might need to focus the input here if it lost focus.
+         this.focusKeyboardInput();
       }
-      
-      // Always update the last line visually as typing happens (except Enter)
-      if (key !== "Enter") {
-        renderMyLastWithCursor(msgs.slice(-1)[0], this.cursorPos);
-      }
-      // Old rendering logic moved or handled by specific key handlers above
+
+      // Old character handling logic removed from here, will be in inputHandler
+      /*
+      const target = this.room.messages[this.socketId]; // Example of removed code
+      this.ws.json({ // Example of removed code
+      */
     }
   };
 
