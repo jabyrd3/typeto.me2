@@ -735,9 +735,9 @@ function padString(string, clip) {
 
 // Renders the main header at the top
 function renderMainHeader(room) {
-  // Calculate count based on actual participants with messages, including self
-  const participantIds = Object.keys(room?.messages || {});
-  const participantCount = participantIds.length;
+  // Determine active participant count (other participants plus self)
+  const otherIds = room.otherParticipantIds || [];
+  const participantCount = otherIds.concat([room.yourId]).length;
   const topMessageBase = `typeto.me | issues: https://github.com/jabyrd3/typeto.me2/issues`;
   let headerMessage;
 
@@ -818,7 +818,8 @@ function fullRender(socketID, room, availableHeight = null) {
 
   container.innerHTML = ""; // Clear previous sections
 
-  const participantIds = Object.keys(room.messages || {});
+  // Determine active participants (other participants plus self)
+  const participantIds = (room.otherParticipantIds || []).concat([socketID]);
   const participantCount = participantIds.length;
 
   if (participantCount === 0) {
