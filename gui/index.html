@@ -234,19 +234,21 @@
       }
     }
 
-    /* Removed .crt, .crt::after, .crt::before, @keyframes flicker, @keyframes textShadow */
+  /* Removed .crt, .crt::after, .crt::before, @keyframes flicker, @keyframes textShadow */
+
+  /* Hide fallback message by default; only show on script load error */
+  #fatal-error { display: none !important; }
 
   </style>
 
 </head>
 <body>
-
-  <script type="module" src="gui/app.module.js"></script>
+  <!-- Fallback error message: shown only if main script fails to load -->
+  <div id="fatal-error">If you see this, something did not load correctly.</div>
+  <script type="module" src="gui/app.module.js" onerror="document.getElementById('fatal-error').style.display='block'"></script>
   <div id="main" class="scanlines">
     <div id="main-header"></div> {/* Remove crt class */}
-    <div id="chat-container">
-      {/* If you see this, something did not load correctly. */}
-    </div>
+    <div id="chat-container"></div>
     <input type="text" id="keyboard-input" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false" style="position: absolute; top: -9999px; left: -9999px; opacity: 0; pointer-events: none;">
   </div>
 </body>
