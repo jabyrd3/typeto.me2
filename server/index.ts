@@ -15,6 +15,8 @@ function getRandomString(s: number) {
   }
   return ret;
 }
+// Maximum number of message lines to retain per participant (oldest dropped beyond this)
+const MAX_HISTORY = Number(Deno.env.get("MAX_HISTORY") ?? "500");
 
 class Room {
   constructor(socket, rooms, emit, id) {
@@ -74,6 +76,8 @@ class Room {
         }`,
       );
       this.messages[socket.id].push("");
+      // prune join history if too long
+      this.pruneHistory(socket.id);
     }
     this.message(
       socket,
@@ -88,6 +92,8 @@ class Room {
       }`,
     );
     this.messages[id].push("");
+    // prune exit history if too long
+    this.pruneHistory(id);
     if (this.sockets.length == 1) {
       console.log(`room ${this.id} stopped chatting`);
     }
@@ -138,7 +144,9 @@ class Room {
         final: this.messages[socket.id][this.messages[socket.id].length - 1],
         source: socket.id,
       });
+      // start a new line and prune history if needed
       this.messages[socket.id].push("");
+      this.pruneHistory(socket.id);
       return;
     }
     
@@ -185,6 +193,13 @@ class Room {
     }
     // We don't need to handle CtrlA, CtrlE, CtrlB, CtrlF on the server as they only affect cursor position
     // We don't update local state for arrow keys since they only affect cursor position
+  }
+  // Prune oldest lines when exceeding MAX_HISTORY per participant
+  pruneHistory(id) {
+    const buf = this.messages[id];
+    if (buf && buf.length > MAX_HISTORY) {
+      buf.splice(0, buf.length - MAX_HISTORY);
+    }
   }
 }
 class Rooms {
@@ -233,8 +248,14 @@ class Rooms {
   newRoom(room) {
     this.rooms[room.id] = room;
     if (this.cachedRooms[room.id]) {
+      // restore cached messages and prune to MAX_HISTORY
       room.messages = this.cachedRooms[room.id];
+      for (const pid of Object.keys(room.messages)) {
+        // prune history per participant
+        room.pruneHistory(pid);
+      }
     }
+    // clear any pending deletion timer
     if (this[`${room.id}timer`]) {
       clearTimeout(this[`${room.id}timer`]);
     }
@@ -298,32 +319,27 @@ Deno.serve({ hostname: "0.0.0.0", port: 8090 }, async (req) => {
           }
           new Room(socket, rooms, "roomCreated");
           break;
-        case "fetchRoom":
+        case "fetchRoom": {
+          // Ensure socket has an ID
+          if (!body.socketId) {
+            socket.id = getRandomString(20);
+          } else {
+            socket.id = body.socketId;
+          }
+          // If room doesn't exist, create it; otherwise join existing
           if (!rooms.rooms[body.id]) {
-            if (!body.socketId) {
-              // todo: dry
-              socket.id = getRandomString(20);
-            } else {
-              socket.id = body.socketId;
-            }
             console.log("socket requested nonexistent room, creating one");
-            // someone went to a url that did't have a room ready, make one on the fly
             const room = new Room(socket, rooms, "gotRoom", body.id);
             socket.roomId = room.id;
           } else {
-            // todo: dry
-            if (!body.socketId) {
-              socket.id = getRandomString(20);
-            } else {
-              socket.id = body.socketId;
-            }
-            // joining room that exists
-            const joined = rooms.rooms[body.id].join(socket);
-            socket.roomId = body.id;
-            if (joined) {
-              rooms.reviveRoom(body);
-            }
+            const room = rooms.rooms[body.id];
+            room.join(socket);
+            socket.roomId = room.id;
+            // clear any pending deletion timer for this room
+            rooms.reviveRoom(room);
           }
+          break;
+        }
           break;
         case "keyPress":
           // someone pushed a button
