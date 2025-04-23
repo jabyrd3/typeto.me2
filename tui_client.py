@@ -30,9 +30,12 @@ def short_id(id_str: str) -> str:
 
 async def network_loop(uri: str, room_id: str, send_q: queue.Queue, recv_q: queue.Queue):
     """
-    Async network thread: connects to WebSocket, sends/receives JSON messages.
-    send_q: outgoing events dicts
-    recv_q: incoming events dicts
+    Async network thread: connects to the WebSocket and shuttles JSON messages
+    back and forth using a *polling* strategy that avoids spawning additional
+    worker threads.  This guarantees that, once the single network thread is
+    marked as daemon, no non-daemon threads remain alive.  Consequently the
+    whole process terminates cleanly after the UI thread ends (e.g. when the
+    user presses Ctrl-C).
     """
     try:
         async with websockets.connect(uri) as ws:
@@ -42,39 +45,52 @@ async def network_loop(uri: str, room_id: str, send_q: queue.Queue, recv_q: queu
             else:
                 init = {"type": "newroom"}
             await ws.send(json.dumps(init))
+
             my_id = None
+
+            # Main loop: pull outbound messages from send_q and forward inbound
+            # messages from the WebSocket to recv_q.  A small timeout keeps the
+            # loop responsive without burning CPU.
             while True:
-                # race between receiving ws and outgoing send_q
-                loop = asyncio.get_running_loop()
-                recv_task = loop.create_task(ws.recv())
-                # schedule send_q.get in executor for non-blocking
-                send_task = loop.run_in_executor(None, send_q.get)
-                done, pending = await asyncio.wait(
-                    [recv_task, send_task], return_when=asyncio.FIRST_COMPLETED
-                )
-                # handle completed tasks
-                for task in done:
-                    if task is recv_task:
-                        msg = task.result()
-                        data = json.loads(msg)
-                        # capture our socket id from server
-                        if isinstance(data, dict) and data.get("room"):
-                            rid = data["room"].get("yourId")
-                            if rid:
-                                my_id = rid
-                        recv_q.put(data)
+                # 1. Drain all pending items from the outbound queue.
+                while True:
+                    try:
+                        ev = send_q.get_nowait()
+                    except queue.Empty:
+                        break
                     else:
-                        # send outgoing event
-                        ev = task.result()
-                        # attach socketId if known
                         if my_id:
                             ev["socketId"] = my_id
                         await ws.send(json.dumps(ev))
-                # cancel pending
-                for task in pending:
-                    task.cancel()
+
+                # 2. Wait briefly for an incoming message; timeout lets us loop
+                #    back to process newly queued outgoing events promptly.
+                try:
+                    msg = await asyncio.wait_for(ws.recv(), timeout=0.05)
+                except asyncio.TimeoutError:
+                    continue  # go back to step 1
+                except asyncio.CancelledError:
+                    raise
+                except Exception as inner_exc:
+                    # Bubble other errors up to outer except block.
+                    raise inner_exc
+
+                # 3. Handle inbound message.
+                try:
+                    data = json.loads(msg)
+                except json.JSONDecodeError:
+                    # Ignore malformed JSON.
+                    continue
+
+                # Capture our socket id from server handshake.
+                if isinstance(data, dict) and data.get("room"):
+                    rid = data["room"].get("yourId")
+                    if rid:
+                        my_id = rid
+
+                recv_q.put(data)
     except Exception as e:
-        # signal error to UI
+        # Signal error to UI.
         recv_q.put({"type": "error", "message": str(e)})
 
 
@@ -199,6 +215,16 @@ def curses_main(stdscr, recv_q: queue.Queue, send_q: queue.Queue):
         # handle local key input
         ch = stdscr.getch()
         if ch != -1:
+            # Detect Ctrl-C (ETX / 0x03). In cbreak/raw mode the terminal no longer
+            # converts Ctrl-C into SIGINT, instead it is delivered to the program as
+            # the character with ASCII code 3.  When running inside curses this means
+            # the user previously had to press Ctrl-C twice: the first time produced
+            # the character which we ignored, the second time got translated into
+            # a real SIGINT once curses had been torn down.  Treat the initial
+            # character as an immediate request to exit so a single press is enough.
+            if ch == 3:  # Ctrl-C / ^C
+                raise KeyboardInterrupt
+
             key = None
             if ch == curses.KEY_LEFT:
                 key = "ArrowLeft"
@@ -343,8 +369,14 @@ def main():
         daemon=True,
     )
     thr.start()
-    # start curses UI
-    curses.wrapper(lambda scr: curses_main(scr, recv_q, send_q))
+    # start curses UI. Allow Ctrl-C inside the curses loop to cleanly exit without
+    # requiring a second press (handled inside curses_main).
+    try:
+        curses.wrapper(lambda scr: curses_main(scr, recv_q, send_q))
+    except KeyboardInterrupt:
+        # Graceful exit – terminal state has already been restored by
+        # curses.wrapper, so just fall through to end the program.
+        pass
 
 
 if __name__ == "__main__":

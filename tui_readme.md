@@ -71,6 +71,7 @@ Controls:
 - **Ctrl+K**: delete to end of line
 - **Ctrl+B / Ctrl+F**: move cursor left/right
 - **Ctrl+D**: delete at cursor
+- **Ctrl+C**: exit client
 
 ---
 
