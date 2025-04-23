@@ -109,8 +109,8 @@ def curses_main(stdscr, recv_q: queue.Queue, send_q: queue.Queue):
             room_id = room.get("id")
             your_id = room.get("yourId")
             others = room.get("otherParticipantIds") or []
-            # build participant list
-            participants = [your_id] + [pid for pid in others if pid != your_id]
+            # build participant list (user last)
+            participants = [pid for pid in others if pid != your_id] + [your_id]
             # initialize messages mapping
             messages.clear()
             for pid, lst in room.get("messages", {}).items():
@@ -182,7 +182,8 @@ def curses_main(stdscr, recv_q: queue.Queue, send_q: queue.Queue):
                 room_id = room.get("id")
                 your_id = room.get("yourId")
                 others = room.get("otherParticipantIds") or []
-                participants = [your_id] + [pid for pid in others if pid != your_id]
+                # build participant list (user last)
+                participants = [pid for pid in others if pid != your_id] + [your_id]
                 messages.clear()
                 for pid, lst in room.get("messages", {}).items():
                     messages[pid] = list(lst)
@@ -265,31 +266,68 @@ def curses_main(stdscr, recv_q: queue.Queue, send_q: queue.Queue):
                         cursor_pos = len(cur)
                     messages[your_id][-1] = new
 
-        # draw UI panels
+        # draw UI sections (rows)
         stdscr.erase()
         max_y, max_x = stdscr.getmaxyx()
+
         # overall header
         hdr = f" Room: {room_id}  You: {short_id(your_id)}  Participants: {len(participants)} "
-        stdscr.addnstr(0, 0, hdr, max_x, curses.A_REVERSE)
-        # panel layout
-        cols = len(participants)
-        col_width = max_x // cols if cols else max_x
-        # for each participant, draw a column
+        stdscr.addnstr(0, 0, hdr.ljust(max_x), max_x, curses.A_REVERSE)
+
+        # calculate available height per participant section
+        num_participants = len(participants)
+        # Header uses 1 line, separators use (num_participants - 1) lines
+        available_height = max_y - 1 - (num_participants - 1)
+        # Each participant gets a title row (1 line) + message lines
+        lines_per_participant = max(1, available_height // num_participants - 1) if num_participants > 0 else 0
+
+        current_y = 1  # Start drawing below the header
+
         for idx, pid in enumerate(participants):
-            x0 = idx * col_width
-            w = col_width if idx < cols-1 else max_x - x0
-            # title row
+            is_last = (idx == num_participants - 1)
+            section_height = lines_per_participant + 1 # +1 for title
+
+            # Draw title row
             title = "You" if pid == your_id else short_id(pid)
-            stdscr.addnstr(1, x0, title.center(w), w, curses.A_BOLD)
-            # messages
-            lst = messages.get(pid, [])
-            disp_h = max_y - 2
-            to_show = lst[-disp_h:] if len(lst) > disp_h else lst
-            for ridx, line in enumerate(to_show):
-                y = 2 + ridx
-                stdscr.addnstr(y, x0, line.ljust(w)[:w], w, curses.A_NORMAL)
+            stdscr.addnstr(current_y, 0, title.center(max_x), max_x, curses.A_BOLD)
+            current_y += 1
+
+            # Draw messages for this participant
+            lst = messages.get(pid, [""])
+            # Show the last N lines that fit, including the current typing line
+            to_show = lst[-lines_per_participant:] if len(lst) > lines_per_participant else lst
+            for line_idx, line in enumerate(to_show):
+                draw_y = current_y + line_idx
+                if draw_y < max_y: # Ensure we don't write past the screen bottom
+                    # Render cursor for self if it's the last line
+                    if pid == your_id and line_idx == len(to_show) - 1:
+                        # Ensure cursor_pos is within bounds
+                        safe_cursor_pos = min(cursor_pos, len(line))
+                        # Draw line part before cursor
+                        stdscr.addnstr(draw_y, 0, line[:safe_cursor_pos], max_x)
+                        # Draw cursor (if space allows)
+                        if safe_cursor_pos < max_x:
+                            stdscr.addch(draw_y, safe_cursor_pos, '_', curses.A_REVERSE) # Simple block cursor
+                        # Draw line part after cursor (if space allows)
+                        if safe_cursor_pos + 1 < max_x:
+                             stdscr.addnstr(draw_y, safe_cursor_pos + 1, line[safe_cursor_pos+1:], max_x - (safe_cursor_pos + 1))
+                    else:
+                        stdscr.addnstr(draw_y, 0, line.ljust(max_x)[:max_x], max_x) # Pad/truncate line
+
+            # Advance current_y past the message lines
+            current_y += lines_per_participant
+
+            # Draw separator line if not the last participant
+            if not is_last and current_y < max_y:
+                try:
+                    stdscr.hline(current_y, 0, curses.ACS_HLINE, max_x)
+                except curses.error:
+                    # Fallback if ACS_HLINE fails or goes out of bounds
+                    stdscr.addnstr(current_y, 0, '-' * max_x, max_x)
+                current_y += 1 # Move past the separator line
+
         stdscr.refresh()
-        time.sleep(0.05)
+        time.sleep(0.05) # Keep throttling redraws
 
 
 def main():

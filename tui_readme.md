@@ -106,21 +106,24 @@ Controls:
      - Poll keyboard (`stdscr.getch()`), translate codes to our key constants,
        update local `messages[your_id]`, `cursor_pos`, and enqueue `keyPress`.
      - Redraw screen:
-       - Top header bar: Room ID, your short ID, participant count
-       - One column per participant, title row + latest chat lines
+       - Top header bar: Room ID, your short ID, participant count.
+       - Horizontal sections (rows) per participant, separated by lines.
+       - Each section shows participant ID and latest chat lines.
+       - User's section is always at the bottom.
      - Short sleep (~50ms) to throttle redraw.
 
 ---
 
 ## Known Limitations & Future Work
-- **Scrolling/History**: currently shows only the last N lines that fit the screen.
-- **Window Resizing**: curses does not auto-resize; manual handling missing.
+- **Scrolling/History**: currently shows only the last N lines that fit each section.
+- **Window Resizing**: curses does not auto-resize; layout might break on resize. Manual handling missing.
 - **Paste Support**: unlike web client, no multi-char paste handling.
 - **Reconnection Logic**: no automatic retry if WS drops.
-- **Cursor Visibility**: cursor is hidden (`curses.curs_set(0)`). Could render a block.
+- **Cursor Visibility**: basic block cursor `_` rendered for the user.
 - **Color/Themes**: monochrome—could add `curses` color pairs.
 - **Input Modes**: consider editable input line vs. full-screen capture.
 - **Logging**: integrate verbose/debug logs for network/UI events.
+- **Dynamic Height**: Section height is fixed based on initial calculation; doesn't adapt well if terminal resizes or participant count changes drastically.
 
 ---
 
