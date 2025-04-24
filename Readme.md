@@ -72,7 +72,7 @@ Here is an example SSL reverse proxy configuration:
 Here is how to do it in Caddy, which should convince you that you should be using Caddy:
 
 ```
-typeto.me {	reverse_proxy localhost:8090 }
+typeto.me { reverse_proxy localhost:8090 }
 ```
 
 # credits
@@ -80,3 +80,7 @@ typeto.me {	reverse_proxy localhost:8090 }
 [Jordan Byrd](https://jordanbyrd.com/) (main contributor)
 
 [Daniel Drucker](https://3e.org/dmd/)
+
+Warning: Multi (3+) user support, mobile support, and the curses TUI
+were entirely vibe-coded and no human has ever reviewed or even looked
+at that code.
