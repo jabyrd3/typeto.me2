@@ -114,8 +114,9 @@ Controls:
      - Redraw screen:
        - Top header bar: Room ID, your short ID, participant count.
        - Horizontal sections (rows) per participant, separated by lines.
-       - Each section shows participant ID and latest chat lines.
-       - User's section is always at the bottom.
+      - Each section shows participant ID and latest chat lines.
+      - Messages are bottom-aligned within each section and scroll upward.
+      - User's section is always at the bottom.
      - Short sleep (~50ms) to throttle redraw.
 
 ---
