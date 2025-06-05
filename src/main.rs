@@ -9,10 +9,7 @@ use std::{
     sync::{Arc, Mutex},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
-use tokio::{
-    sync::broadcast,
-    time::interval,
-};
+use tokio::{sync::broadcast, time::interval};
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{error, info};
 
@@ -24,11 +21,22 @@ const ROOM_CLEANUP_HOURS: u64 = 12;
 #[serde(tag = "type")]
 enum ClientMessage {
     #[serde(rename = "newroom")]
-    NewRoom { socketId: Option<String> },
+    NewRoom {
+        #[serde(rename = "socketId")]
+        socket_id: Option<String>,
+    },
     #[serde(rename = "fetchRoom")]
-    FetchRoom { id: String, socketId: Option<String> },
+    FetchRoom {
+        id: String,
+        #[serde(rename = "socketId")]
+        socket_id: Option<String>,
+    },
     #[serde(rename = "keyPress")]
-    KeyPress { key: String, cursorPos: Option<usize> },
+    KeyPress {
+        key: String,
+        #[serde(rename = "cursorPos")]
+        cursor_pos: Option<usize>,
+    },
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -41,7 +49,12 @@ enum ServerMessage {
     #[serde(rename = "committed")]
     Committed { r#final: String, source: String },
     #[serde(rename = "keyPress")]
-    KeyPress { key: String, source: String, cursorPos: Option<usize> },
+    KeyPress {
+        key: String,
+        source: String,
+        #[serde(rename = "cursorPos")]
+        cursor_pos: Option<usize>,
+    },
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -81,22 +94,34 @@ impl Room {
         }
     }
 
-    fn join(&mut self, participant_id: String, sender: broadcast::Sender<ServerMessage>) -> Result<(), String> {
+    fn join(
+        &mut self,
+        participant_id: String,
+        sender: broadcast::Sender<ServerMessage>,
+    ) -> Result<(), String> {
         if self.participants.len() >= MAX_PARTICIPANTS {
             return Err("Room is full (max 4 participants).".to_string());
         }
 
-        info!("Socket {} joining room {}, {} participants already connected", 
-              participant_id, self.id, self.participants.len());
+        info!(
+            "Socket {} joining room {}, {} participants already connected",
+            participant_id,
+            self.id,
+            self.participants.len()
+        );
 
-        self.participants.push(Participant { id: participant_id.clone(), sender });
+        self.participants.push(Participant {
+            id: participant_id.clone(),
+            sender,
+        });
 
         if self.participants.len() == 2 {
             info!("Room {} started chatting", self.id);
         }
 
         if !self.messages.contains_key(&participant_id) {
-            self.messages.insert(participant_id.clone(), vec![String::new()]);
+            self.messages
+                .insert(participant_id.clone(), vec![String::new()]);
         }
 
         let messages = self.messages.get_mut(&participant_id).unwrap();
@@ -104,12 +129,15 @@ impl Room {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        
+
         if !messages.iter().any(|msg| msg.contains("has joined")) {
-            messages.push(format!("> {} has joined at {}Z", &participant_id[..4.min(participant_id.len())], 
-                                 chrono::DateTime::from_timestamp(now as i64, 0)
-                                     .unwrap()
-                                     .format("%Y-%m-%d %H:%M:%S")));
+            messages.push(format!(
+                "> {} has joined at {}Z",
+                &participant_id[..4.min(participant_id.len())],
+                chrono::DateTime::from_timestamp(now as i64, 0)
+                    .unwrap()
+                    .format("%Y-%m-%d %H:%M:%S")
+            ));
             messages.push(String::new());
             self.prune_history(&participant_id);
         }
@@ -122,17 +150,20 @@ impl Room {
 
     fn leave(&mut self, participant_id: &str) {
         self.participants.retain(|p| p.id != participant_id);
-        
+
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
 
         if let Some(messages) = self.messages.get_mut(participant_id) {
-            messages.push(format!("> {} has left at {}Z", &participant_id[..4.min(participant_id.len())], 
-                                 chrono::DateTime::from_timestamp(now as i64, 0)
-                                     .unwrap()
-                                     .format("%Y-%m-%d %H:%M:%S")));
+            messages.push(format!(
+                "> {} has left at {}Z",
+                &participant_id[..4.min(participant_id.len())],
+                chrono::DateTime::from_timestamp(now as i64, 0)
+                    .unwrap()
+                    .format("%Y-%m-%d %H:%M:%S")
+            ));
             messages.push(String::new());
             self.prune_history(participant_id);
         }
@@ -157,14 +188,9 @@ impl Room {
         }
     }
 
-    fn send_to(&self, participant_id: &str, message: ServerMessage) {
-        if let Some(participant) = self.participants.iter().find(|p| p.id == participant_id) {
-            let _ = participant.sender.send(message);
-        }
-    }
-
     fn render(&self, socket_id: &str) -> RoomView {
-        let other_ids: Vec<String> = self.participants
+        let other_ids: Vec<String> = self
+            .participants
             .iter()
             .filter(|p| p.id != socket_id)
             .map(|p| p.id.clone())
@@ -192,7 +218,7 @@ impl Room {
                     Some(participant_id),
                 );
             }
-            
+
             if let Some(messages) = self.messages.get_mut(participant_id) {
                 messages.push(String::new());
                 self.prune_history(participant_id);
@@ -204,7 +230,7 @@ impl Room {
             ServerMessage::KeyPress {
                 key: key.to_string(),
                 source: participant_id.to_string(),
-                cursorPos: cursor_pos,
+                cursor_pos,
             },
             Some(participant_id),
         );
@@ -258,10 +284,28 @@ impl Room {
 }
 
 fn is_non_event(key: &str) -> bool {
-    matches!(key, "Shift" | "Meta" | "Control" | "Alt" | "Enter" | "Escape" 
-             | "Backspace" | "ArrowLeft" | "ArrowRight" | "ArrowUp" | "ArrowDown" 
-             | "Tab" | "Delete" | "DeleteAt" | "CtrlA" | "CtrlE" | "CtrlK" 
-             | "CtrlB" | "CtrlF")
+    matches!(
+        key,
+        "Shift"
+            | "Meta"
+            | "Control"
+            | "Alt"
+            | "Enter"
+            | "Escape"
+            | "Backspace"
+            | "ArrowLeft"
+            | "ArrowRight"
+            | "ArrowUp"
+            | "ArrowDown"
+            | "Tab"
+            | "Delete"
+            | "DeleteAt"
+            | "CtrlA"
+            | "CtrlE"
+            | "CtrlK"
+            | "CtrlB"
+            | "CtrlF"
+    )
 }
 
 fn generate_random_string(length: usize) -> String {
@@ -270,17 +314,14 @@ fn generate_random_string(length: usize) -> String {
 
 type Rooms = Arc<Mutex<HashMap<String, Room>>>;
 
-async fn handle_websocket(
-    websocket: HyperWebsocket,
-    rooms: Rooms,
-) {
+async fn handle_websocket(websocket: HyperWebsocket, rooms: Rooms) {
     let ws_stream = match websocket.await {
         Ok(stream) => stream,
         Err(_) => return,
     };
     let (mut ws_sender, mut ws_receiver) = ws_stream.split();
     let (tx, mut rx) = broadcast::channel::<ServerMessage>(32);
-    
+
     let mut participant_id = String::new();
     let mut room_id = String::new();
 
@@ -299,34 +340,38 @@ async fn handle_websocket(
             Ok(Message::Text(text)) => {
                 if let Ok(client_msg) = serde_json::from_str::<ClientMessage>(&text) {
                     match client_msg {
-                        ClientMessage::NewRoom { socketId } => {
-                            participant_id = socketId.unwrap_or_else(|| generate_random_string(20));
+                        ClientMessage::NewRoom { socket_id } => {
+                            participant_id =
+                                socket_id.unwrap_or_else(|| generate_random_string(20));
                             room_id = generate_random_string(6);
-                            
+
                             let mut rooms_lock = rooms.lock().unwrap();
                             let mut room = Room::new(room_id.clone());
                             if let Err(err) = room.join(participant_id.clone(), tx.clone()) {
                                 let _ = tx.send(ServerMessage::RoomIsCrowded { message: err });
                                 continue;
                             }
-                            
+
                             rooms_lock.insert(room_id.clone(), room);
                             drop(rooms_lock);
-                            
+
                             // Send room state to all participants
                             let rooms_lock = rooms.lock().unwrap();
                             if let Some(room) = rooms_lock.get(&room_id) {
                                 for participant in &room.participants {
                                     let room_view = room.render(&participant.id);
-                                    let _ = participant.sender.send(ServerMessage::GotRoom { room: room_view });
+                                    let _ = participant
+                                        .sender
+                                        .send(ServerMessage::GotRoom { room: room_view });
                                 }
                             }
                             drop(rooms_lock);
                         }
-                        ClientMessage::FetchRoom { id, socketId } => {
-                            participant_id = socketId.unwrap_or_else(|| generate_random_string(20));
+                        ClientMessage::FetchRoom { id, socket_id } => {
+                            participant_id =
+                                socket_id.unwrap_or_else(|| generate_random_string(20));
                             room_id = id;
-                            
+
                             let mut rooms_lock = rooms.lock().unwrap();
                             if let Some(room) = rooms_lock.get_mut(&room_id) {
                                 if let Err(err) = room.join(participant_id.clone(), tx.clone()) {
@@ -342,21 +387,23 @@ async fn handle_websocket(
                                 rooms_lock.insert(room_id.clone(), room);
                             }
                             drop(rooms_lock);
-                            
+
                             // Send room state to all participants
                             let rooms_lock = rooms.lock().unwrap();
                             if let Some(room) = rooms_lock.get(&room_id) {
                                 for participant in &room.participants {
                                     let room_view = room.render(&participant.id);
-                                    let _ = participant.sender.send(ServerMessage::GotRoom { room: room_view });
+                                    let _ = participant
+                                        .sender
+                                        .send(ServerMessage::GotRoom { room: room_view });
                                 }
                             }
                             drop(rooms_lock);
                         }
-                        ClientMessage::KeyPress { key, cursorPos } => {
+                        ClientMessage::KeyPress { key, cursor_pos } => {
                             let mut rooms_lock = rooms.lock().unwrap();
                             if let Some(room) = rooms_lock.get_mut(&room_id) {
-                                room.handle_keypress(&participant_id, &key, cursorPos);
+                                room.handle_keypress(&participant_id, &key, cursor_pos);
                             }
                             drop(rooms_lock);
                         }
@@ -374,7 +421,10 @@ async fn handle_websocket(
         if let Some(room) = rooms_lock.get_mut(&room_id) {
             room.leave(&participant_id);
             if room.participants.is_empty() {
-                info!("Room {} is now empty, will be cleaned up in {} hours", room_id, ROOM_CLEANUP_HOURS);
+                info!(
+                    "Room {} is now empty, will be cleaned up in {} hours",
+                    room_id, ROOM_CLEANUP_HOURS
+                );
             }
         }
     }
@@ -382,12 +432,9 @@ async fn handle_websocket(
     sender_task.abort();
 }
 
-async fn handle_request(
-    req: Request<Body>,
-    rooms: Rooms,
-) -> Result<Response<Body>, hyper::Error> {
+async fn handle_request(req: Request<Body>, rooms: Rooms) -> Result<Response<Body>, hyper::Error> {
     let uri = req.uri();
-    
+
     if uri.path() == "/ws" {
         if hyper_tungstenite::is_upgrade_request(&req) {
             let (response, websocket) = hyper_tungstenite::upgrade(req, None).unwrap();
@@ -400,7 +447,12 @@ async fn handle_request(
                 .unwrap())
         }
     } else if uri.path().starts_with("/gui") {
-        match tokio::fs::read(format!("gui{}", uri.path().strip_prefix("/gui").unwrap_or("/index.html"))).await {
+        match tokio::fs::read(format!(
+            "gui{}",
+            uri.path().strip_prefix("/gui").unwrap_or("/index.html")
+        ))
+        .await
+        {
             Ok(content) => {
                 let content_type = if uri.path().ends_with(".js") {
                     "application/javascript"
@@ -414,7 +466,7 @@ async fn handle_request(
                     .header("content-type", content_type)
                     .body(Body::from(content))
                     .unwrap())
-            },
+            }
             Err(_) => Ok(Response::builder()
                 .status(StatusCode::NOT_FOUND)
                 .body(Body::empty())
@@ -438,48 +490,43 @@ async fn handle_request(
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
-    
+
     let rooms: Rooms = Arc::new(Mutex::new(HashMap::new()));
     let rooms_cleanup = rooms.clone();
-    
+
     tokio::spawn(async move {
         let mut interval = interval(Duration::from_secs(3600));
-        
+
         loop {
             interval.tick().await;
             let mut rooms_lock = rooms_cleanup.lock().unwrap();
             let cutoff = SystemTime::now() - Duration::from_secs(ROOM_CLEANUP_HOURS * 3600);
-            
+
             let to_remove: Vec<String> = rooms_lock
                 .iter()
                 .filter(|(_, room)| room.participants.is_empty() && room.last_update < cutoff)
                 .map(|(id, _)| id.clone())
                 .collect();
-            
+
             for room_id in to_remove {
                 rooms_lock.remove(&room_id);
                 info!("Cleaned up abandoned room: {}", room_id);
             }
-            
+
             drop(rooms_lock);
         }
     });
 
     let make_service = hyper::service::make_service_fn(move |_conn| {
         let rooms = rooms.clone();
-        async move {
-            Ok::<_, hyper::Error>(service_fn(move |req| {
-                handle_request(req, rooms.clone())
-            }))
-        }
+        async move { Ok::<_, hyper::Error>(service_fn(move |req| handle_request(req, rooms.clone()))) }
     });
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 8090));
-    let server = Server::bind(&addr)
-        .serve(make_service);
+    let server = Server::bind(&addr).serve(make_service);
 
     info!("Server running on http://0.0.0.0:8090");
-    
+
     if let Err(e) = server.await {
         error!("Server error: {}", e);
     }
