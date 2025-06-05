@@ -151,22 +151,8 @@ impl Room {
     fn leave(&mut self, participant_id: &str) {
         self.participants.retain(|p| p.id != participant_id);
 
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-
-        if let Some(messages) = self.messages.get_mut(participant_id) {
-            messages.push(format!(
-                "> {} has left at {}Z",
-                &participant_id[..4.min(participant_id.len())],
-                chrono::DateTime::from_timestamp(now as i64, 0)
-                    .unwrap()
-                    .format("%Y-%m-%d %H:%M:%S")
-            ));
-            messages.push(String::new());
-            self.prune_history(participant_id);
-        }
+        // Remove the participant's messages completely so their pane disappears
+        self.messages.remove(participant_id);
 
         if self.participants.len() == 1 {
             info!("Room {} stopped chatting", self.id);
@@ -425,6 +411,14 @@ async fn handle_websocket(websocket: HyperWebsocket, rooms: Rooms) {
                     "Room {} is now empty, will be cleaned up in {} hours",
                     room_id, ROOM_CLEANUP_HOURS
                 );
+            } else {
+                // Broadcast updated room state to remaining participants
+                for participant in &room.participants {
+                    let room_view = room.render(&participant.id);
+                    let _ = participant
+                        .sender
+                        .send(ServerMessage::GotRoom { room: room_view });
+                }
             }
         }
     }
