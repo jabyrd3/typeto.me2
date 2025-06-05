@@ -130,7 +130,10 @@ impl Room {
             .unwrap()
             .as_secs();
 
-        if !messages.iter().any(|msg| msg.contains("has joined")) {
+        let recent_join =
+            messages.len() >= 2 && messages[messages.len() - 2].contains("has joined");
+
+        if !recent_join {
             messages.push(format!(
                 "> {} has joined at {}Z",
                 &participant_id[..4.min(participant_id.len())],
@@ -142,7 +145,6 @@ impl Room {
             self.prune_history(&participant_id);
         }
 
-        // Note: Room state broadcasting will be handled by caller
 
         self.last_update = SystemTime::now();
         Ok(())
@@ -151,14 +153,27 @@ impl Room {
     fn leave(&mut self, participant_id: &str) {
         self.participants.retain(|p| p.id != participant_id);
 
-        // Remove the participant's messages completely so their pane disappears
-        self.messages.remove(participant_id);
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        if let Some(messages) = self.messages.get_mut(participant_id) {
+            messages.push(format!(
+                "> {} has left at {}Z",
+                &participant_id[..4.min(participant_id.len())],
+                chrono::DateTime::from_timestamp(now as i64, 0)
+                    .unwrap()
+                    .format("%Y-%m-%d %H:%M:%S")
+            ));
+            messages.push(String::new());
+            self.prune_history(participant_id);
+        }
 
         if self.participants.len() == 1 {
             info!("Room {} stopped chatting", self.id);
         }
 
-        // Note: Room state broadcasting will be handled by caller
 
         self.last_update = SystemTime::now();
     }
@@ -341,7 +356,6 @@ async fn handle_websocket(websocket: HyperWebsocket, rooms: Rooms) {
                             rooms_lock.insert(room_id.clone(), room);
                             drop(rooms_lock);
 
-                            // Send room state to all participants
                             let rooms_lock = rooms.lock().unwrap();
                             if let Some(room) = rooms_lock.get(&room_id) {
                                 for participant in &room.participants {
@@ -374,7 +388,6 @@ async fn handle_websocket(websocket: HyperWebsocket, rooms: Rooms) {
                             }
                             drop(rooms_lock);
 
-                            // Send room state to all participants
                             let rooms_lock = rooms.lock().unwrap();
                             if let Some(room) = rooms_lock.get(&room_id) {
                                 for participant in &room.participants {
@@ -412,7 +425,6 @@ async fn handle_websocket(websocket: HyperWebsocket, rooms: Rooms) {
                     room_id, ROOM_CLEANUP_HOURS
                 );
             } else {
-                // Broadcast updated room state to remaining participants
                 for participant in &room.participants {
                     let room_view = room.render(&participant.id);
                     let _ = participant
