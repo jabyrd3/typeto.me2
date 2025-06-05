@@ -320,11 +320,18 @@ def curses_main(stdscr, recv_q: queue.Queue, send_q: queue.Queue):
 
             # Draw messages for this participant
             lst = messages.get(pid, [""])
-            # Show the last N lines that fit, including the current typing line
+            # Show the last N lines that fit, including the current typing line.
             to_show = lst[-lines_per_participant:] if len(lst) > lines_per_participant else lst
+
+            # Start drawing so that messages are bottom-aligned within the
+            # participant section. When there are fewer lines than the section
+            # height, this leaves blank space at the top rather than the
+            # bottom, mimicking a typical chat UI where text scrolls upward.
+            start_offset = lines_per_participant - len(to_show)
+
             for line_idx, line in enumerate(to_show):
-                draw_y = current_y + line_idx
-                if draw_y < max_y: # Ensure we don't write past the screen bottom
+                draw_y = current_y + start_offset + line_idx
+                if draw_y < max_y:  # Ensure we don't write past the screen bottom
                     # Render cursor for self if it's the last line
                     if pid == your_id and line_idx == len(to_show) - 1:
                         # Ensure cursor_pos is within bounds
