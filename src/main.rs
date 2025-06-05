@@ -207,6 +207,15 @@ impl Room {
         }
     }
 
+    fn notify_participants(&self) {
+        for participant in &self.participants {
+            let room_view = self.render(&participant.id);
+            let _ = participant
+                .sender
+                .send(ServerMessage::GotRoom { room: room_view });
+        }
+    }
+
     fn handle_keypress(&mut self, participant_id: &str, key: &str, cursor_pos: Option<usize>) {
         if key == "Enter" {
             if let Some(messages) = self.messages.get(participant_id) {
@@ -358,12 +367,7 @@ async fn handle_websocket(websocket: HyperWebsocket, rooms: Rooms) {
 
                             let rooms_lock = rooms.lock().unwrap();
                             if let Some(room) = rooms_lock.get(&room_id) {
-                                for participant in &room.participants {
-                                    let room_view = room.render(&participant.id);
-                                    let _ = participant
-                                        .sender
-                                        .send(ServerMessage::GotRoom { room: room_view });
-                                }
+                                room.notify_participants();
                             }
                             drop(rooms_lock);
                         }
@@ -390,12 +394,7 @@ async fn handle_websocket(websocket: HyperWebsocket, rooms: Rooms) {
 
                             let rooms_lock = rooms.lock().unwrap();
                             if let Some(room) = rooms_lock.get(&room_id) {
-                                for participant in &room.participants {
-                                    let room_view = room.render(&participant.id);
-                                    let _ = participant
-                                        .sender
-                                        .send(ServerMessage::GotRoom { room: room_view });
-                                }
+                                room.notify_participants();
                             }
                             drop(rooms_lock);
                         }
@@ -425,12 +424,7 @@ async fn handle_websocket(websocket: HyperWebsocket, rooms: Rooms) {
                     room_id, ROOM_CLEANUP_HOURS
                 );
             } else {
-                for participant in &room.participants {
-                    let room_view = room.render(&participant.id);
-                    let _ = participant
-                        .sender
-                        .send(ServerMessage::GotRoom { room: room_view });
-                }
+                room.notify_participants();
             }
         }
     }
