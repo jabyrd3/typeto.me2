@@ -15,7 +15,7 @@ This is a rewrite of
 
 ## legacy deno version
 
-The original Deno version is available in the `legacy-deno` branch.
+The original Deno version is available in the [legacy-deno branch](https://github.com/jabyrd3/typeto.me2/tree/legacy-deno).
 
 
 ## building as a binary
