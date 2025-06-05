@@ -2,3 +2,4 @@ rooms.json
 bin/
 .aider*
 __pycache__/
+target/
