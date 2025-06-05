@@ -13,6 +13,11 @@ This is a rewrite of
 
 [try it out!](https://typeto.me)
 
+## rust
+
+There is also an experimental Rust version of the server.
+
+
 ## building as a binary
 
 ```bash
