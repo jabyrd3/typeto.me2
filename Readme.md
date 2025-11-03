@@ -44,7 +44,7 @@ cargo run
 
 # credits
 
-[Jordan Byrd](https://jordanbyrd.com/) (main contributor)
+[Jordan Byrd](https://jordanbyrd.com/)
 
 [Daniel Drucker](https://3e.org/dmd/)
 
