@@ -738,7 +738,7 @@ function renderMainHeader(room) {
   // Determine active participant count (other participants plus self)
   const otherIds = room.otherParticipantIds || [];
   const participantCount = otherIds.concat([room.yourId]).length;
-  const topMessageBase = `typeto.me | issues: https://github.com/jabyrd3/typeto.me2/issues`;
+  const topMessageBase = `typeto.me | issues: https://github.com/dmd/typeto.me2/issues`;
   let headerMessage;
 
   if (!room || participantCount === 0) { // Check if room exists and count > 0
