@@ -754,7 +754,7 @@ function renderMainHeader(room) {
   const paddedHeaderMessage = padString(headerMessage, participantCount <= 1)
     .replace(
       "typeto.me",
-      `<a target="_blank" href="https://github.com/jabyrd3/typeto.me2">typeto.me${ghIconModule}</a>`,
+      `<a target="_blank" href="https://github.com/dmd/typeto.me2">typeto.me${ghIconModule}</a>`,
     );
 
   const headerElement = document.querySelector("#main-header");
