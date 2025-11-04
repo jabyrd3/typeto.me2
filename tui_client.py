@@ -71,9 +71,9 @@ async def network_loop(uri: str, room_id: str, send_q: queue.Queue, recv_q: queu
                     continue  # go back to step 1
                 except asyncio.CancelledError:
                     raise
-                except Exception as inner_exc:
+                except Exception:
                     # Bubble other errors up to outer except block.
-                    raise inner_exc
+                    raise
 
                 # 3. Handle inbound message.
                 try:
@@ -153,10 +153,15 @@ def curses_main(stdscr, recv_q: queue.Queue, send_q: queue.Queue):
             etype = ev.get("type")
             if etype == "keyPress":
                 src = ev.get("source")
+                if not src:
+                    continue  # Skip events without a valid source
                 key = ev.get("key")
                 cpos = ev.get("cursorPos")
                 # ensure list exists
                 messages.setdefault(src, [""])
+                # Safe access to last element
+                if not messages[src]:
+                    messages[src] = [""]
                 cur = messages[src][-1]
                 new = cur
                 if key == "CtrlK" and cpos is not None:
@@ -185,9 +190,11 @@ def curses_main(stdscr, recv_q: queue.Queue, send_q: queue.Queue):
                 messages[src][-1] = new
             elif etype == "committed":
                 src = ev.get("source")
+                if not src:
+                    continue  # Skip events without a valid source
                 final = ev.get("final", "")
                 lst = messages.setdefault(src, [])
-                if lst:
+                if lst and len(lst) > 0:
                     lst[-1] = final
                 else:
                     lst.append(final)
@@ -255,6 +262,9 @@ def curses_main(stdscr, recv_q: queue.Queue, send_q: queue.Queue):
                 if c.isprintable():
                     key = c
             if key:
+                # Ensure messages list for your_id is not empty
+                if not messages.get(your_id):
+                    messages[your_id] = [""]
                 cur = messages[your_id][-1]
                 cpos = cursor_pos
                 # send to server

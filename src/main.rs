@@ -124,7 +124,8 @@ impl Room {
                 .insert(participant_id.clone(), vec![String::new()]);
         }
 
-        let messages = self.messages.get_mut(&participant_id).unwrap();
+        // Safe unwrap: we just inserted this key if it didn't exist
+        let messages = self.messages.get_mut(&participant_id).expect("participant_id must exist in messages");
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -249,31 +250,50 @@ impl Room {
             if let Some(current_line) = messages.last_mut() {
                 match key {
                     "CtrlK" if cursor_pos.is_some() => {
-                        let pos = cursor_pos.unwrap();
-                        current_line.truncate(pos);
+                        let char_pos = cursor_pos.unwrap();
+                        // Convert char position to byte position safely
+                        let byte_pos = current_line.char_indices()
+                            .nth(char_pos)
+                            .map(|(i, _)| i)
+                            .unwrap_or(current_line.len());
+                        current_line.truncate(byte_pos);
                     }
                     "DeleteAt" | "Delete" if cursor_pos.is_some() => {
-                        let pos = cursor_pos.unwrap();
-                        if pos < current_line.len() {
-                            current_line.remove(pos);
+                        let char_pos = cursor_pos.unwrap();
+                        // Find the byte range of the character at char_pos
+                        if let Some((start, c)) = current_line.char_indices().nth(char_pos) {
+                            let end = start + c.len_utf8();
+                            current_line.replace_range(start..end, "");
                         }
                     }
                     "Backspace" if cursor_pos.is_some() && cursor_pos.unwrap() > 0 => {
-                        let pos = cursor_pos.unwrap();
-                        if pos > 0 && pos <= current_line.len() {
-                            current_line.remove(pos - 1);
+                        let char_pos = cursor_pos.unwrap();
+                        // Find the byte range of the character before char_pos
+                        if char_pos > 0 {
+                            if let Some((start, c)) = current_line.char_indices().nth(char_pos - 1) {
+                                let end = start + c.len_utf8();
+                                current_line.replace_range(start..end, "");
+                            }
                         }
                     }
                     "Space" if cursor_pos.is_some() => {
-                        let pos = cursor_pos.unwrap();
-                        if pos <= current_line.len() {
-                            current_line.insert(pos, ' ');
-                        }
+                        let char_pos = cursor_pos.unwrap();
+                        // Convert char position to byte position safely
+                        let byte_pos = current_line.char_indices()
+                            .nth(char_pos)
+                            .map(|(i, _)| i)
+                            .unwrap_or(current_line.len());
+                        current_line.insert(byte_pos, ' ');
                     }
                     _ if cursor_pos.is_some() && !is_non_event(key) => {
-                        let pos = cursor_pos.unwrap();
-                        if pos <= current_line.len() && key.len() == 1 {
-                            current_line.insert_str(pos, key);
+                        let char_pos = cursor_pos.unwrap();
+                        // Convert char position to byte position safely
+                        let byte_pos = current_line.char_indices()
+                            .nth(char_pos)
+                            .map(|(i, _)| i)
+                            .unwrap_or(current_line.len());
+                        if key.len() == 1 || key.chars().count() == 1 {
+                            current_line.insert_str(byte_pos, key);
                         }
                     }
                     _ => {}
@@ -355,7 +375,13 @@ async fn handle_websocket(websocket: HyperWebsocket, rooms: Rooms) {
                                 socket_id.unwrap_or_else(|| generate_random_string(20));
                             room_id = generate_random_string(6);
 
-                            let mut rooms_lock = rooms.lock().unwrap();
+                            let mut rooms_lock = match rooms.lock() {
+                                Ok(lock) => lock,
+                                Err(poisoned) => {
+                                    error!("Mutex poisoned in NewRoom, recovering");
+                                    poisoned.into_inner()
+                                }
+                            };
                             let mut room = Room::new(room_id.clone());
                             if let Err(err) = room.join(participant_id.clone(), tx.clone()) {
                                 let _ = tx.send(ServerMessage::RoomIsCrowded { message: err });
@@ -365,7 +391,13 @@ async fn handle_websocket(websocket: HyperWebsocket, rooms: Rooms) {
                             rooms_lock.insert(room_id.clone(), room);
                             drop(rooms_lock);
 
-                            let rooms_lock = rooms.lock().unwrap();
+                            let rooms_lock = match rooms.lock() {
+                                Ok(lock) => lock,
+                                Err(poisoned) => {
+                                    error!("Mutex poisoned in NewRoom notify, recovering");
+                                    poisoned.into_inner()
+                                }
+                            };
                             if let Some(room) = rooms_lock.get(&room_id) {
                                 room.notify_participants();
                             }
@@ -376,7 +408,13 @@ async fn handle_websocket(websocket: HyperWebsocket, rooms: Rooms) {
                                 socket_id.unwrap_or_else(|| generate_random_string(20));
                             room_id = id;
 
-                            let mut rooms_lock = rooms.lock().unwrap();
+                            let mut rooms_lock = match rooms.lock() {
+                                Ok(lock) => lock,
+                                Err(poisoned) => {
+                                    error!("Mutex poisoned in FetchRoom, recovering");
+                                    poisoned.into_inner()
+                                }
+                            };
                             if let Some(room) = rooms_lock.get_mut(&room_id) {
                                 if let Err(err) = room.join(participant_id.clone(), tx.clone()) {
                                     let _ = tx.send(ServerMessage::RoomIsCrowded { message: err });
@@ -392,14 +430,26 @@ async fn handle_websocket(websocket: HyperWebsocket, rooms: Rooms) {
                             }
                             drop(rooms_lock);
 
-                            let rooms_lock = rooms.lock().unwrap();
+                            let rooms_lock = match rooms.lock() {
+                                Ok(lock) => lock,
+                                Err(poisoned) => {
+                                    error!("Mutex poisoned in FetchRoom notify, recovering");
+                                    poisoned.into_inner()
+                                }
+                            };
                             if let Some(room) = rooms_lock.get(&room_id) {
                                 room.notify_participants();
                             }
                             drop(rooms_lock);
                         }
                         ClientMessage::KeyPress { key, cursor_pos } => {
-                            let mut rooms_lock = rooms.lock().unwrap();
+                            let mut rooms_lock = match rooms.lock() {
+                                Ok(lock) => lock,
+                                Err(poisoned) => {
+                                    error!("Mutex poisoned in KeyPress, recovering");
+                                    poisoned.into_inner()
+                                }
+                            };
                             if let Some(room) = rooms_lock.get_mut(&room_id) {
                                 room.handle_keypress(&participant_id, &key, cursor_pos);
                             }
@@ -415,7 +465,13 @@ async fn handle_websocket(websocket: HyperWebsocket, rooms: Rooms) {
     }
 
     {
-        let mut rooms_lock = rooms.lock().unwrap();
+        let mut rooms_lock = match rooms.lock() {
+            Ok(lock) => lock,
+            Err(poisoned) => {
+                error!("Mutex poisoned during participant cleanup, recovering");
+                poisoned.into_inner()
+            }
+        };
         if let Some(room) = rooms_lock.get_mut(&room_id) {
             room.leave(&participant_id);
             if room.participants.is_empty() {
@@ -499,7 +555,13 @@ async fn main() {
 
         loop {
             interval.tick().await;
-            let mut rooms_lock = rooms_cleanup.lock().unwrap();
+            let mut rooms_lock = match rooms_cleanup.lock() {
+                Ok(lock) => lock,
+                Err(poisoned) => {
+                    error!("Mutex poisoned during room cleanup, recovering");
+                    poisoned.into_inner()
+                }
+            };
             let cutoff = SystemTime::now() - Duration::from_secs(ROOM_CLEANUP_HOURS * 3600);
 
             let to_remove: Vec<String> = rooms_lock

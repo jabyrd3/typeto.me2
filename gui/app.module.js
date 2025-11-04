@@ -22,6 +22,14 @@ const nonEvents = [
   "CtrlF"
 ];
 
+// Helper function to safely get the last element of an array
+function getLastElement(arr, defaultValue = "") {
+  if (!arr || arr.length === 0) {
+    return defaultValue;
+  }
+  return arr[arr.length - 1];
+}
+
 class App {
   constructor() {
     this.socketId = localStorage.getItem("socketId");
@@ -61,7 +69,13 @@ class App {
         }));
       };
       window.addEventListener("keydown", this.keydownHandler);
-      this.pasteListener = document.addEventListener("paste", (evt) => {
+
+      // Store paste handler as a class method so it can be properly removed later
+      this.pasteHandler = (evt) => {
+        if (!this.room || !this.socketId) {
+          console.warn("Paste event received before room is ready");
+          return;
+        }
         var clipboardData = evt.clipboardData || window.clipboardData;
         var pastedText = clipboardData.getData("text/plain");
         pastedText.split("").map((char) =>
@@ -72,20 +86,23 @@ class App {
         );
         // Update internal state
         const currentMessages = this.room.messages[this.socketId];
+        const lastMessage = getLastElement(currentMessages);
         currentMessages.splice(
           -1,
           1,
-          currentMessages.slice(-1)[0] + pastedText,
+          lastMessage + pastedText,
         );
         // Re-render just this user's section after paste
         // Use fullRender after paste to ensure layout is correct, especially if content wraps
         fullRender(this.socketId, this.room);
         // Ensure cursor is at the end after paste
-        this.cursorPos = currentMessages.slice(-1)[0].length;
-        renderMyLastWithCursor(currentMessages.slice(-1)[0], this.cursorPos);
+        const updatedLast = getLastElement(currentMessages);
+        this.cursorPos = updatedLast.length;
+        renderMyLastWithCursor(updatedLast, this.cursorPos);
         // Refocus input
         this.focusKeyboardInput();
-      });
+      };
+      document.addEventListener("paste", this.pasteHandler);
 
       // Add resize listeners
       window.visualViewport.addEventListener('resize', this.handleResize);
@@ -109,7 +126,7 @@ class App {
     if (evt.ctrlKey) {
       evt.preventDefault();
       const msgs = this.room.messages[this.socketId];
-      const currentLine = msgs.slice(-1)[0];
+      const currentLine = getLastElement(msgs);
       
       if (key === "a") {
         // Control+A: move cursor to beginning of line
@@ -198,7 +215,7 @@ class App {
     if (!evt.metaKey && !evt.ctrlKey) {
       const key = evt.key;
       const msgs = this.room.messages[this.socketId];
-      const currentLine = msgs.slice(-1)[0];
+      const currentLine = getLastElement(msgs);
 
       // Only process special keys in keydown
       if (key === "Enter" || key === "Backspace" || key === "Delete" || key.startsWith("Arrow") || key === "Tab") {
@@ -272,7 +289,7 @@ class App {
 
         // Update local state immediately
         const msgs = this.room.messages[this.socketId];
-        const currentLine = msgs.slice(-1)[0];
+        const currentLine = getLastElement(msgs);
         const newLine = currentLine.slice(0, this.cursorPos) + char + currentLine.slice(this.cursorPos);
         msgs.splice(-1, 1, newLine);
         this.cursorPos++; // Move cursor forward
@@ -301,7 +318,9 @@ class App {
       console.log("ws already closed");
     }
     window.removeEventListener("keydown", this.keydownHandler);
-    document.removeEventListener("paste", this.pasteListener);
+    if (this.pasteHandler) {
+      document.removeEventListener("paste", this.pasteHandler);
+    }
     // Remove input listener
     if (this.keyboardInput) {
         this.keyboardInput.removeEventListener("input", this.inputHandler);
@@ -353,7 +372,7 @@ class App {
           `/${body.room.id}`,
         );
         this.room = body.room;
-        this.cursorPos = this.room.messages[this.socketId]?.slice(-1)[0]?.length || 0;
+        this.cursorPos = getLastElement(this.room.messages[this.socketId] || []).length;
         fullRender(this.socketId, this.room);
         // Setup input handling after room is ready
         this.setupInputHandling();
@@ -367,12 +386,16 @@ class App {
           );
         }
         this.room = body.room;
-        this.cursorPos = this.room.messages[this.socketId]?.slice(-1)[0]?.length || 0;
+        this.cursorPos = getLastElement(this.room.messages[this.socketId] || []).length;
         fullRender(this.socketId, this.room);
          // Setup input handling after room is ready
         this.setupInputHandling();
         break;
       case "committed":
+        if (!this.room || !body.source) {
+          console.error("Received committed message without valid room or source");
+          break;
+        }
         const commitSourceId = body.source;
         const commitTarget = this.room.messages[commitSourceId];
         if (commitTarget) {
@@ -383,10 +406,14 @@ class App {
         }
         break;
       case "keyPress":
+        if (!this.room || !body.source) {
+          console.error("Received keyPress message without valid room or source");
+          break;
+        }
         const pressSourceId = body.source;
         const pressTarget = this.room.messages[pressSourceId];
         if (pressTarget) {
-            let currentLastLine = pressTarget.slice(-1)[0];
+            let currentLastLine = getLastElement(pressTarget);
             
             // For arrow keys, just update cursor position tracking
             if (body.key === "ArrowLeft" || body.key === "ArrowRight") {
@@ -471,22 +498,22 @@ class App {
                     this.room.cursorPositions[pressSourceId] = 0;
                 } else if (body.key === "CtrlE") {
                     // Cursor at end of line
-                    this.room.cursorPositions[pressSourceId] = pressTarget.slice(-1)[0].length;
+                    this.room.cursorPositions[pressSourceId] = getLastElement(pressTarget).length;
                 } else if (body.key === "CtrlB") {
                     // Cursor back one character
                     this.room.cursorPositions[pressSourceId] = Math.max(0, body.cursorPos - 1);
                 } else if (body.key === "CtrlF") {
                     // Cursor forward one character
-                    this.room.cursorPositions[pressSourceId] = Math.min(pressTarget.slice(-1)[0].length, body.cursorPos + 1);
+                    this.room.cursorPositions[pressSourceId] = Math.min(getLastElement(pressTarget).length, body.cursorPos + 1);
                 } else if (!nonEvents.includes(body.key)) {
                     this.room.cursorPositions[pressSourceId] = body.cursorPos + 1;
                 }
-                
+
                 // Don't show cursor for other users, just render text
-                renderParticipantLast(pressSourceId, pressTarget.slice(-1)[0]);
+                renderParticipantLast(pressSourceId, getLastElement(pressTarget));
             } else {
                 // Fallback to normal rendering
-                renderParticipantLast(pressSourceId, pressTarget.slice(-1)[0]);
+                renderParticipantLast(pressSourceId, getLastElement(pressTarget));
             }
         }
         break;
