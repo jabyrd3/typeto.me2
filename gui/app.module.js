@@ -579,7 +579,11 @@ class App {
         [type]: new Blob([rawMessage], { type }),
       }),
     ];
-    return navigator.clipboard.write(data);
+    return navigator.clipboard.write(data).catch(err => {
+      console.error("Failed to write to clipboard:", err);
+      this.clipped = false;
+      renderMainHeader(this.room);
+    });
   };
 }
 const app = await new App();

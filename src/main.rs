@@ -126,10 +126,6 @@ impl Room {
 
         // Safe unwrap: we just inserted this key if it didn't exist
         let messages = self.messages.get_mut(&participant_id).expect("participant_id must exist in messages");
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
 
         let recent_join =
             messages.len() >= 2 && messages[messages.len() - 2].contains("has joined");
@@ -138,9 +134,7 @@ impl Room {
             messages.push(format!(
                 "> {} has joined at {}Z",
                 &participant_id[..4.min(participant_id.len())],
-                chrono::DateTime::from_timestamp(now as i64, 0)
-                    .unwrap()
-                    .format("%Y-%m-%d %H:%M:%S")
+                chrono::Utc::now().format("%Y-%m-%d %H:%M:%S")
             ));
             messages.push(String::new());
             self.prune_history(&participant_id);
@@ -154,18 +148,11 @@ impl Room {
     fn leave(&mut self, participant_id: &str) {
         self.participants.retain(|p| p.id != participant_id);
 
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-
         if let Some(messages) = self.messages.get_mut(participant_id) {
             messages.push(format!(
                 "> {} has left at {}Z",
                 &participant_id[..4.min(participant_id.len())],
-                chrono::DateTime::from_timestamp(now as i64, 0)
-                    .unwrap()
-                    .format("%Y-%m-%d %H:%M:%S")
+                chrono::Utc::now().format("%Y-%m-%d %H:%M:%S")
             ));
             messages.push(String::new());
             self.prune_history(participant_id);
