@@ -328,7 +328,15 @@ class App {
     }
   };
   messageHandler = (raw) => {
-    const body = JSON.parse(raw.data);
+    let body;
+    try {
+      body = JSON.parse(raw.data);
+    } catch (error) {
+      console.error("Failed to parse message from server:", error);
+      console.error("Raw data:", raw.data);
+      return; // Skip processing malformed messages
+    }
+
     if (body?.room?.yourId) {
       this.socketId = body.room.yourId;
       localStorage.setItem("socketId", this.socketId);
