@@ -125,22 +125,11 @@ impl Room {
         }
 
         let messages = self.messages.get_mut(&participant_id).unwrap();
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-
         let recent_join =
             messages.len() >= 2 && messages[messages.len() - 2].contains("has joined");
 
         if !recent_join {
-            messages.push(format!(
-                "> {} has joined at {}Z",
-                &participant_id[..4.min(participant_id.len())],
-                chrono::DateTime::from_timestamp(now as i64, 0)
-                    .unwrap()
-                    .format("%Y-%m-%d %H:%M:%S")
-            ));
+            messages.push(format_event_message(&participant_id, "joined"));
             messages.push(String::new());
             self.prune_history(&participant_id);
         }
@@ -153,19 +142,8 @@ impl Room {
     fn leave(&mut self, participant_id: &str) {
         self.participants.retain(|p| p.id != participant_id);
 
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-
         if let Some(messages) = self.messages.get_mut(participant_id) {
-            messages.push(format!(
-                "> {} has left at {}Z",
-                &participant_id[..4.min(participant_id.len())],
-                chrono::DateTime::from_timestamp(now as i64, 0)
-                    .unwrap()
-                    .format("%Y-%m-%d %H:%M:%S")
-            ));
+            messages.push(format_event_message(participant_id, "left"));
             messages.push(String::new());
             self.prune_history(participant_id);
         }
@@ -218,16 +196,18 @@ impl Room {
 
     fn handle_keypress(&mut self, participant_id: &str, key: &str, cursor_pos: Option<usize>) {
         if key == "Enter" {
-            if let Some(messages) = self.messages.get(participant_id) {
-                let final_msg = messages.last().unwrap_or(&String::new()).clone();
-                self.broadcast(
-                    ServerMessage::Committed {
-                        r#final: final_msg,
-                        source: participant_id.to_string(),
-                    },
-                    Some(participant_id),
-                );
-            }
+            let final_msg = self.messages.get(participant_id)
+                .and_then(|m| m.last())
+                .unwrap_or(&String::new())
+                .clone();
+
+            self.broadcast(
+                ServerMessage::Committed {
+                    r#final: final_msg,
+                    source: participant_id.to_string(),
+                },
+                Some(participant_id),
+            );
 
             if let Some(messages) = self.messages.get_mut(participant_id) {
                 messages.push(String::new());
@@ -245,40 +225,25 @@ impl Room {
             Some(participant_id),
         );
 
-        if let Some(messages) = self.messages.get_mut(participant_id) {
-            if let Some(current_line) = messages.last_mut() {
-                match key {
-                    "CtrlK" if cursor_pos.is_some() => {
-                        let pos = cursor_pos.unwrap();
-                        current_line.truncate(pos);
-                    }
-                    "DeleteAt" | "Delete" if cursor_pos.is_some() => {
-                        let pos = cursor_pos.unwrap();
-                        if pos < current_line.len() {
-                            current_line.remove(pos);
-                        }
-                    }
-                    "Backspace" if cursor_pos.is_some() && cursor_pos.unwrap() > 0 => {
-                        let pos = cursor_pos.unwrap();
-                        if pos > 0 && pos <= current_line.len() {
-                            current_line.remove(pos - 1);
-                        }
-                    }
-                    "Space" if cursor_pos.is_some() => {
-                        let pos = cursor_pos.unwrap();
-                        if pos <= current_line.len() {
-                            current_line.insert(pos, ' ');
-                        }
-                    }
-                    _ if cursor_pos.is_some() && !is_non_event(key) => {
-                        let pos = cursor_pos.unwrap();
-                        if pos <= current_line.len() && key.len() == 1 {
-                            current_line.insert_str(pos, key);
-                        }
-                    }
-                    _ => {}
-                }
+        let Some(pos) = cursor_pos else { return };
+        let Some(messages) = self.messages.get_mut(participant_id) else { return };
+        let Some(current_line) = messages.last_mut() else { return };
+
+        match key {
+            "CtrlK" => current_line.truncate(pos),
+            "DeleteAt" | "Delete" if pos < current_line.len() => {
+                current_line.remove(pos);
             }
+            "Backspace" if pos > 0 && pos <= current_line.len() => {
+                current_line.remove(pos - 1);
+            }
+            "Space" if pos <= current_line.len() => {
+                current_line.insert(pos, ' ');
+            }
+            _ if !is_non_event(key) && pos <= current_line.len() && key.len() == 1 => {
+                current_line.insert_str(pos, key);
+            }
+            _ => {}
         }
 
         self.last_update = SystemTime::now();
@@ -318,11 +283,47 @@ fn is_non_event(key: &str) -> bool {
     )
 }
 
+fn format_event_message(participant_id: &str, event: &str) -> String {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    format!(
+        "> {} has {} at {}Z",
+        &participant_id[..4.min(participant_id.len())],
+        event,
+        chrono::DateTime::from_timestamp(now as i64, 0)
+            .unwrap()
+            .format("%Y-%m-%d %H:%M:%S")
+    )
+}
+
 fn generate_random_string(length: usize) -> String {
     Alphanumeric.sample_string(&mut rand::thread_rng(), length)
 }
 
 type Rooms = Arc<Mutex<HashMap<String, Room>>>;
+
+fn join_or_create_room(
+    rooms: &Rooms,
+    room_id: &str,
+    participant_id: String,
+    tx: broadcast::Sender<ServerMessage>,
+) -> Result<(), String> {
+    let mut rooms_lock = rooms.lock().unwrap();
+    if let Some(room) = rooms_lock.get_mut(room_id) {
+        room.join(participant_id, tx)?;
+    } else {
+        let mut room = Room::new(room_id.to_string());
+        room.join(participant_id, tx)?;
+        rooms_lock.insert(room_id.to_string(), room);
+    }
+
+    if let Some(room) = rooms_lock.get(room_id) {
+        room.notify_participants();
+    }
+    Ok(())
+}
 
 async fn handle_websocket(websocket: HyperWebsocket, rooms: Rooms) {
     let ws_stream = match websocket.await {
@@ -355,55 +356,28 @@ async fn handle_websocket(websocket: HyperWebsocket, rooms: Rooms) {
                                 socket_id.unwrap_or_else(|| generate_random_string(20));
                             room_id = generate_random_string(6);
 
-                            let mut rooms_lock = rooms.lock().unwrap();
-                            let mut room = Room::new(room_id.clone());
-                            if let Err(err) = room.join(participant_id.clone(), tx.clone()) {
+                            if let Err(err) =
+                                join_or_create_room(&rooms, &room_id, participant_id.clone(), tx.clone())
+                            {
                                 let _ = tx.send(ServerMessage::RoomIsCrowded { message: err });
-                                continue;
                             }
-
-                            rooms_lock.insert(room_id.clone(), room);
-                            drop(rooms_lock);
-
-                            let rooms_lock = rooms.lock().unwrap();
-                            if let Some(room) = rooms_lock.get(&room_id) {
-                                room.notify_participants();
-                            }
-                            drop(rooms_lock);
                         }
                         ClientMessage::FetchRoom { id, socket_id } => {
                             participant_id =
                                 socket_id.unwrap_or_else(|| generate_random_string(20));
                             room_id = id;
 
-                            let mut rooms_lock = rooms.lock().unwrap();
-                            if let Some(room) = rooms_lock.get_mut(&room_id) {
-                                if let Err(err) = room.join(participant_id.clone(), tx.clone()) {
-                                    let _ = tx.send(ServerMessage::RoomIsCrowded { message: err });
-                                    continue;
-                                }
-                            } else {
-                                let mut room = Room::new(room_id.clone());
-                                if let Err(err) = room.join(participant_id.clone(), tx.clone()) {
-                                    let _ = tx.send(ServerMessage::RoomIsCrowded { message: err });
-                                    continue;
-                                }
-                                rooms_lock.insert(room_id.clone(), room);
+                            if let Err(err) =
+                                join_or_create_room(&rooms, &room_id, participant_id.clone(), tx.clone())
+                            {
+                                let _ = tx.send(ServerMessage::RoomIsCrowded { message: err });
                             }
-                            drop(rooms_lock);
-
-                            let rooms_lock = rooms.lock().unwrap();
-                            if let Some(room) = rooms_lock.get(&room_id) {
-                                room.notify_participants();
-                            }
-                            drop(rooms_lock);
                         }
                         ClientMessage::KeyPress { key, cursor_pos } => {
                             let mut rooms_lock = rooms.lock().unwrap();
                             if let Some(room) = rooms_lock.get_mut(&room_id) {
                                 room.handle_keypress(&participant_id, &key, cursor_pos);
                             }
-                            drop(rooms_lock);
                         }
                     }
                 }
@@ -432,6 +406,30 @@ async fn handle_websocket(websocket: HyperWebsocket, rooms: Rooms) {
     sender_task.abort();
 }
 
+fn content_type_for(path: &str) -> &'static str {
+    if path.ends_with(".js") {
+        "application/javascript"
+    } else if path.ends_with(".css") {
+        "text/css"
+    } else {
+        "text/html"
+    }
+}
+
+async fn serve_file(path: &str) -> Result<Response<Body>, hyper::Error> {
+    match tokio::fs::read(path).await {
+        Ok(content) => Ok(Response::builder()
+            .status(StatusCode::OK)
+            .header("content-type", content_type_for(path))
+            .body(Body::from(content))
+            .unwrap()),
+        Err(_) => Ok(Response::builder()
+            .status(StatusCode::NOT_FOUND)
+            .body(Body::empty())
+            .unwrap()),
+    }
+}
+
 async fn handle_request(req: Request<Body>, rooms: Rooms) -> Result<Response<Body>, hyper::Error> {
     let uri = req.uri();
 
@@ -447,43 +445,13 @@ async fn handle_request(req: Request<Body>, rooms: Rooms) -> Result<Response<Bod
                 .unwrap())
         }
     } else if uri.path().starts_with("/gui") {
-        match tokio::fs::read(format!(
+        let file_path = format!(
             "gui{}",
             uri.path().strip_prefix("/gui").unwrap_or("/index.html")
-        ))
-        .await
-        {
-            Ok(content) => {
-                let content_type = if uri.path().ends_with(".js") {
-                    "application/javascript"
-                } else if uri.path().ends_with(".css") {
-                    "text/css"
-                } else {
-                    "text/html"
-                };
-                Ok(Response::builder()
-                    .status(StatusCode::OK)
-                    .header("content-type", content_type)
-                    .body(Body::from(content))
-                    .unwrap())
-            }
-            Err(_) => Ok(Response::builder()
-                .status(StatusCode::NOT_FOUND)
-                .body(Body::empty())
-                .unwrap()),
-        }
+        );
+        serve_file(&file_path).await
     } else {
-        match tokio::fs::read_to_string("gui/index.html").await {
-            Ok(content) => Ok(Response::builder()
-                .status(StatusCode::OK)
-                .header("content-type", "text/html")
-                .body(Body::from(content))
-                .unwrap()),
-            Err(_) => Ok(Response::builder()
-                .status(StatusCode::NOT_FOUND)
-                .body(Body::empty())
-                .unwrap()),
-        }
+        serve_file("gui/index.html").await
     }
 }
 
@@ -512,8 +480,6 @@ async fn main() {
                 rooms_lock.remove(&room_id);
                 info!("Cleaned up abandoned room: {}", room_id);
             }
-
-            drop(rooms_lock);
         }
     });
 

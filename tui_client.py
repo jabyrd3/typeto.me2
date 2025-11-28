@@ -1,13 +1,21 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run
+# /// script
+# requires-python = ">=3.8"
+# dependencies = [
+#   "websockets",
+# ]
+# ///
 """
 TUI client for the Typeto.me chat app using curses.
 
 Usage:
-  python tui_client.py [ROOM_ID] [--host HOST]
+  uv run tui_client.py [ROOM_ID] [--host HOST]
+  # or with direct execution:
+  ./tui_client.py [ROOM_ID] [--host HOST]
 
 Requirements:
   Python 3.8+
-  pip install websockets
+  websockets (automatically installed by uv)
 """
 import curses
 import argparse
